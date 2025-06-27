@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id); // Set the primary key for the Product entity.
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+            entity.HasIndex(e => e.Name).IsUnique();
         });
     }
 }

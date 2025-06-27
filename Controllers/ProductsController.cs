@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.JsonPatch;
+using HandyBackend.DTOs;
 using HandyBackend.Models;
-using HandyBackend.Services;
 using HandyBackend.Models.DTOs;
+using HandyBackend.Services;
+using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.Mvc;
 
 namespace HandyBackend.Controllers;
 
@@ -51,11 +52,15 @@ public class ProductsController : ControllerBase
             Name = createDto.Name,
             Description = createDto.Description,
             Price = createDto.Price,
-            Amount = createDto.Amount
+            Amount = createDto.Amount,
         };
 
         var createdProduct = await _productService.CreateProductAsync(product);
-        return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, MapToResponseDto(createdProduct));
+        return CreatedAtAction(
+            nameof(GetProduct),
+            new { id = createdProduct.Id },
+            MapToResponseDto(createdProduct)
+        );
     }
 
     [HttpPatch("{id}")]
@@ -91,7 +96,7 @@ public class ProductsController : ControllerBase
             Description = updateDto.Description,
             Price = updateDto.Price,
             Amount = updateDto.Amount,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
         };
 
         var updatedProduct = await _productService.UpdateProductAsync(id, product);
@@ -111,6 +116,42 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("delivery")]
+    public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
+    {
+        Console.WriteLine(
+            $"Delivery received - Product ID: {deliveryRecord.Product_Id}, Amount: {deliveryRecord.Amount}"
+        );
+
+        // Find the product by name (using productId as the name)
+        var product = await _productService.GetProductByNameAsync(deliveryRecord.Product_Id);
+        if (product == null)
+        {
+            Console.WriteLine($"Product not found: {deliveryRecord.Product_Id}");
+            return NotFound(new { message = $"Product '{deliveryRecord.Product_Id}' not found" });
+        }
+
+        // Update the product's amount (set the amount of existing stock)
+        product.Amount = deliveryRecord.Amount;
+        product.UpdatedAt = DateTime.UtcNow;
+
+        // Save the changes
+        var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
+
+        Console.WriteLine(
+            $"Product '{product.Name}' stock updated. New amount: {updatedProduct.Amount}"
+        );
+
+        return Ok(
+            new
+            {
+                message = "Delivery processed successfully",
+                productName = product.Name,
+                newAmount = updatedProduct.Amount,
+            }
+        );
+    }
+
     // Helper method to map Product to ProductResponseDto
     private static ProductResponseDto MapToResponseDto(Product product)
     {
@@ -122,7 +163,7 @@ public class ProductsController : ControllerBase
             Price = product.Price,
             Amount = product.Amount,
             CreatedAt = product.CreatedAt,
-            UpdatedAt = product.UpdatedAt
+            UpdatedAt = product.UpdatedAt,
         };
     }
 }

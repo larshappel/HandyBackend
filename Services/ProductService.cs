@@ -27,6 +27,12 @@ public class ProductService : IProductService
         return await _context.Products.FindAsync(id);
     }
 
+    public async Task<Product?> GetProductByNameAsync(string name)
+    {
+        return await _context.Products
+            .FirstOrDefaultAsync(p => p.Name == name);
+    }
+
     public async Task<Product> CreateProductAsync(Product product)
     {
         _context.Products.Add(product);
