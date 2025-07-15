@@ -1,6 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using HandyBackend.Data;
 using HandyBackend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace HandyBackend.Services;
 
@@ -29,8 +29,7 @@ public class ProductService : IProductService
 
     public async Task<Product?> GetProductByNameAsync(string name)
     {
-        return await _context.Products
-            .FirstOrDefaultAsync(p => p.Name == name);
+        return await _context.Products.FirstOrDefaultAsync(p => p.Name == name);
     }
 
     public async Task<Product> CreateProductAsync(Product product)

@@ -120,7 +120,7 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
         Console.WriteLine(
-            $"Delivery received - Product ID: {deliveryRecord.Product_Id}, Amount: {deliveryRecord.Amount}"
+            $"Delivery received - Product ID: {deliveryRecord.Product_Id}, Amount: {deliveryRecord.Amount}, Individual ID: {deliveryRecord.individual_id}"
         );
 
         // Find the product by name (using productId as the name)

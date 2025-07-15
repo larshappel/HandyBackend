@@ -1,6 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using HandyBackend.Data;
 using HandyBackend.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,9 +15,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    ));
+    )
+);
 
-// Add Services
+// Add Services for dependency injection
 builder.Services.AddScoped<IProductService, ProductService>();
 
 var app = builder.Build();
@@ -33,23 +34,35 @@ app.UseHttpsRedirection();
 
 var summaries = new[]
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    "Freezing",
+    "Bracing",
+    "Chilly",
+    "Cool",
+    "Mild",
+    "Warm",
+    "Balmy",
+    "Hot",
+    "Sweltering",
+    "Scorching",
 };
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.MapGet(
+        "/weatherforecast",
+        () =>
+        {
+            var forecast = Enumerable
+                .Range(1, 5)
+                .Select(index => new WeatherForecast(
+                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
+                    Random.Shared.Next(-20, 55),
+                    summaries[Random.Shared.Next(summaries.Length)]
+                ))
+                .ToArray();
+            return forecast;
+        }
+    )
+    .WithName("GetWeatherForecast")
+    .WithOpenApi();
 
 app.MapControllers();
 
