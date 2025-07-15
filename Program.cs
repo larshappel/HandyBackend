@@ -1,16 +1,22 @@
-
 using HandyBackend.Data;
 using HandyBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
-    Args = args,
-    ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : default
-});
+var builder = WebApplication.CreateBuilder(
+    new WebApplicationOptions
+    {
+        Args = args,
+        ContentRootPath = WindowsServiceHelpers.IsWindowsService()
+            ? AppContext.BaseDirectory
+            : default,
+    }
+);
 
 builder.Host.UseWindowsService();
+
+// Listen on all network interfaces, necessary to access from other machines.
+builder.WebHost.UseUrls("http://*:5000");
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -38,6 +44,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// HttpsRedirection is necessary for HTTPS in production environments.
 app.UseHttpsRedirection();
 
 var summaries = new[]
@@ -80,4 +87,3 @@ record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
-
