@@ -9,6 +9,7 @@ namespace HandyBackend.Controllers
         [HttpGet]
         public IActionResult Get()
         {
+            Console.WriteLine("Health check endpoint hit");
             return Ok(new { status = "Healthy" });
         }
     }
