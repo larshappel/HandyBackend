@@ -26,13 +26,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("OrderDetailID"); // Id column is named differently
 
             entity.HasKey(e => e.Id); // Set the primary key for the Product entity.
+            
+            entity.Ignore(e => e.CreatedAt); // Ignore the CreatedAt property
+
+            entity.Property(e => e.UpdateDate).HasColumnName("UpdateDate");
+            entity.Property(e => e.UpdateTime).HasColumnName("UpdateTime");
+
             entity
                 .Property(e => e.Name)
                 .IsRequired()
                 .HasMaxLength(100)
                 .HasColumnName("OrderDetailId"); // .HasColumnName("product_name") to specify a column name
             entity
-                .Property(e => e.Price)
+                .Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("SalesQuantity");
             // and also "IdentificationNumber"

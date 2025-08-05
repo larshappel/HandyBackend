@@ -50,7 +50,6 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             Name = createDto.Name,
-            Description = createDto.Description,
             Price = createDto.Price,
             Amount = createDto.Amount,
         };
@@ -73,14 +72,13 @@ public class ProductsController : ControllerBase
         // Update only provided properties
         if (!string.IsNullOrEmpty(updateDto.Name))
             existingProduct.Name = updateDto.Name;
-        if (updateDto.Description != null)
-            existingProduct.Description = updateDto.Description;
         if (updateDto.Price.HasValue)
             existingProduct.Price = updateDto.Price.Value;
         if (updateDto.Amount.HasValue)
             existingProduct.Amount = updateDto.Amount.Value;
 
-        existingProduct.UpdatedAt = DateTime.UtcNow;
+        existingProduct.UpdateDate = DateTime.UtcNow.Date;
+        existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
         var updatedProduct = await _productService.UpdateProductAsync(id, existingProduct);
         return NoContent();
@@ -93,10 +91,10 @@ public class ProductsController : ControllerBase
         {
             Id = id,
             Name = updateDto.Name,
-            Description = updateDto.Description,
             Price = updateDto.Price,
             Amount = updateDto.Amount,
-            UpdatedAt = DateTime.UtcNow,
+            UpdateDate = DateTime.UtcNow.Date,
+            UpdateTime = DateTime.UtcNow.TimeOfDay,
         };
 
         var updatedProduct = await _productService.UpdateProductAsync(id, product);
@@ -133,7 +131,8 @@ public class ProductsController : ControllerBase
 
         // Update the product's amount (set the amount of existing stock)
         product.Amount = deliveryRecord.Amount;
-        product.UpdatedAt = DateTime.UtcNow;
+        product.UpdateDate = DateTime.UtcNow.Date;
+        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
         // Save the changes
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
@@ -159,11 +158,12 @@ public class ProductsController : ControllerBase
         {
             Id = product.Id,
             Name = product.Name,
-            Description = product.Description,
             Price = product.Price,
             Amount = product.Amount,
             CreatedAt = product.CreatedAt,
-            UpdatedAt = product.UpdatedAt,
+            UpdatedAt = product.UpdateDate.HasValue && product.UpdateTime.HasValue 
+                ? product.UpdateDate.Value.Add(product.UpdateTime.Value) 
+                : (DateTime?)null,
         };
     }
 }

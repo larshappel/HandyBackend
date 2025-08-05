@@ -30,8 +30,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         // "DefaultConnection" is the name of the ConnectionString for local testing.
         // ServerConnection is for staging.
         // These strings aren't part of the Git Repo so take care of them
-        builder.Configuration.GetConnectionString("ServerConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ServerConnection"))
+        builder.Configuration.GetConnectionString("OfficeConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("OfficeConnection"))
     )
 );
 

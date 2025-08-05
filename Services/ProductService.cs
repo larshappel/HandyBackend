@@ -46,10 +46,10 @@ public class ProductService : IProductService
             return null;
 
         existingProduct.Name = product.Name;
-        existingProduct.Description = product.Description;
         existingProduct.Price = product.Price;
         existingProduct.Amount = product.Amount;
-        existingProduct.UpdatedAt = DateTime.UtcNow;
+        existingProduct.UpdateDate = DateTime.UtcNow.Date;
+        existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
         await _context.SaveChangesAsync();
         return existingProduct;
