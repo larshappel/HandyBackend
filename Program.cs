@@ -27,8 +27,11 @@ builder.Services.AddControllers();
 // Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
+        // "DefaultConnection" is the name of the ConnectionString for local testing.
+        // ServerConnection is for staging.
+        // These strings aren't part of the Git Repo so take care of them
+        builder.Configuration.GetConnectionString("ServerConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ServerConnection"))
     )
 );
 
@@ -47,6 +50,10 @@ if (app.Environment.IsDevelopment())
 // HttpsRedirection is necessary for HTTPS in production environments.
 app.UseHttpsRedirection();
 
+/*
+ * Weather Forecast Test Route
+ * for a basic connectivity test
+ */
 var summaries = new[]
 {
     "Freezing",
@@ -78,6 +85,10 @@ app.MapGet(
     )
     .WithName("GetWeatherForecast")
     .WithOpenApi();
+
+/*
+ * End of Weather Forecast
+ */
 
 app.MapControllers();
 

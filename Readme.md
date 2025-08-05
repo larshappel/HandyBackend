@@ -14,3 +14,7 @@ Creates a Windows service.
 
 `dotnet publish -r win-x64 -c Release -o ./publish/win-x64`
 Publish it for windows to the publish directory.
+
+## Windows Security Settings
+
+
