@@ -4,6 +4,7 @@ public class Product
 {
     public int Id { get; set; }
     public int OrderDetailId { get; set; }
+    public int? IdentificationNumber { get; set; }
 
     // public decimal Price { get; set; }
     public double Amount { get; set; }

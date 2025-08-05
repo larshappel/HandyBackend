@@ -40,6 +40,9 @@ public class ApplicationDbContext : DbContext
                 .Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("SalesQuantity");
+            
+            entity.Property(e => e.IdentificationNumber).HasColumnName("IdentificationNumber");
+
             // and also "IdentificationNumber"
             entity.HasIndex(e => e.OrderDetailId).IsUnique();
         });

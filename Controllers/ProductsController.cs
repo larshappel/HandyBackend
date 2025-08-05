@@ -50,6 +50,7 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             OrderDetailId = createDto.OrderDetailId,
+            IdentificationNumber = createDto.IndividualId,
             // Price = createDto.Price,
             Amount = createDto.Amount,
         };
@@ -72,6 +73,8 @@ public class ProductsController : ControllerBase
         // Update only provided properties
         if (updateDto.OrderDetailId.HasValue)
             existingProduct.OrderDetailId = updateDto.OrderDetailId.Value;
+        if (updateDto.IndividualId != null)
+            existingProduct.IdentificationNumber = updateDto.IndividualId;
         // if (updateDto.Price.HasValue)
         //     existingProduct.Price = updateDto.Price.Value;
         if (updateDto.Amount.HasValue)
@@ -91,6 +94,7 @@ public class ProductsController : ControllerBase
         {
             Id = id,
             OrderDetailId = updateDto.OrderDetailId,
+            IdentificationNumber = updateDto.IndividualId,
             // Price = updateDto.Price,
             Amount = updateDto.Amount,
             UpdateDate = DateTime.UtcNow.Date,
@@ -133,6 +137,7 @@ public class ProductsController : ControllerBase
 
         // Update the product's amount (set the amount of existing stock)
         product.Amount = deliveryRecord.Amount;
+        product.IdentificationNumber = deliveryRecord.individual_id;
         product.UpdateDate = DateTime.UtcNow.Date;
         product.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
@@ -160,6 +165,7 @@ public class ProductsController : ControllerBase
         {
             Id = product.Id,
             OrderDetailId = product.OrderDetailId,
+            IndividualId = product.IdentificationNumber,
             // Price = product.Price,
             Amount = product.Amount,
             CreatedAt = product.CreatedAt,
