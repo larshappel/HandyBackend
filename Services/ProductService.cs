@@ -46,7 +46,7 @@ public class ProductService : IProductService
             return null;
 
         existingProduct.Name = product.Name;
-        existingProduct.Price = product.Price;
+        // existingProduct.Price = product.Price;
         existingProduct.Amount = product.Amount;
         existingProduct.UpdateDate = DateTime.UtcNow.Date;
         existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;

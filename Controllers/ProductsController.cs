@@ -50,7 +50,7 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             Name = createDto.Name,
-            Price = createDto.Price,
+            // Price = createDto.Price,
             Amount = createDto.Amount,
         };
 
@@ -72,8 +72,8 @@ public class ProductsController : ControllerBase
         // Update only provided properties
         if (!string.IsNullOrEmpty(updateDto.Name))
             existingProduct.Name = updateDto.Name;
-        if (updateDto.Price.HasValue)
-            existingProduct.Price = updateDto.Price.Value;
+        // if (updateDto.Price.HasValue)
+        //     existingProduct.Price = updateDto.Price.Value;
         if (updateDto.Amount.HasValue)
             existingProduct.Amount = updateDto.Amount.Value;
 
@@ -91,7 +91,7 @@ public class ProductsController : ControllerBase
         {
             Id = id,
             Name = updateDto.Name,
-            Price = updateDto.Price,
+            // Price = updateDto.Price,
             Amount = updateDto.Amount,
             UpdateDate = DateTime.UtcNow.Date,
             UpdateTime = DateTime.UtcNow.TimeOfDay,
@@ -158,12 +158,13 @@ public class ProductsController : ControllerBase
         {
             Id = product.Id,
             Name = product.Name,
-            Price = product.Price,
+            // Price = product.Price,
             Amount = product.Amount,
             CreatedAt = product.CreatedAt,
-            UpdatedAt = product.UpdateDate.HasValue && product.UpdateTime.HasValue 
-                ? product.UpdateDate.Value.Add(product.UpdateTime.Value) 
-                : (DateTime?)null,
+            UpdatedAt =
+                product.UpdateDate.HasValue && product.UpdateTime.HasValue
+                    ? product.UpdateDate.Value.Add(product.UpdateTime.Value)
+                    : (DateTime?)null,
         };
     }
 }
