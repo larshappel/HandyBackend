@@ -27,9 +27,9 @@ public class ProductService : IProductService
         return await _context.Products.FindAsync(id);
     }
 
-    public async Task<Product?> GetProductByNameAsync(string name)
+    public async Task<Product?> GetProductByOrderDetailIdAsync(int orderDetailId)
     {
-        return await _context.Products.FirstOrDefaultAsync(p => p.Name == name);
+        return await _context.Products.FirstOrDefaultAsync(p => p.OrderDetailId == orderDetailId);
     }
 
     public async Task<Product> CreateProductAsync(Product product)
@@ -45,7 +45,7 @@ public class ProductService : IProductService
         if (existingProduct == null)
             return null;
 
-        existingProduct.Name = product.Name;
+        existingProduct.OrderDetailId = product.OrderDetailId;
         // existingProduct.Price = product.Price;
         existingProduct.Amount = product.Amount;
         existingProduct.UpdateDate = DateTime.UtcNow.Date;

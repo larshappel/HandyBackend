@@ -33,16 +33,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdateTime).HasColumnName("UpdateTime");
 
             entity
-                .Property(e => e.Name)
+                .Property(e => e.OrderDetailId)
                 .IsRequired()
-                .HasMaxLength(100)
-                .HasColumnName("OrderDetailId"); // .HasColumnName("product_name") to specify a column name
+                .HasColumnName("OrderDetailId");
             entity
                 .Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("SalesQuantity");
             // and also "IdentificationNumber"
-            entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.OrderDetailId).IsUnique();
         });
     }
 }

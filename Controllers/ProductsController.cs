@@ -49,7 +49,7 @@ public class ProductsController : ControllerBase
     {
         var product = new Product
         {
-            Name = createDto.Name,
+            OrderDetailId = createDto.OrderDetailId,
             // Price = createDto.Price,
             Amount = createDto.Amount,
         };
@@ -70,8 +70,8 @@ public class ProductsController : ControllerBase
             return NotFound();
 
         // Update only provided properties
-        if (!string.IsNullOrEmpty(updateDto.Name))
-            existingProduct.Name = updateDto.Name;
+        if (updateDto.OrderDetailId.HasValue)
+            existingProduct.OrderDetailId = updateDto.OrderDetailId.Value;
         // if (updateDto.Price.HasValue)
         //     existingProduct.Price = updateDto.Price.Value;
         if (updateDto.Amount.HasValue)
@@ -90,7 +90,7 @@ public class ProductsController : ControllerBase
         var product = new Product
         {
             Id = id,
-            Name = updateDto.Name,
+            OrderDetailId = updateDto.OrderDetailId,
             // Price = updateDto.Price,
             Amount = updateDto.Amount,
             UpdateDate = DateTime.UtcNow.Date,
@@ -121,8 +121,10 @@ public class ProductsController : ControllerBase
             $"Delivery received - Product ID: {deliveryRecord.Product_Id}, Amount: {deliveryRecord.Amount}, Individual ID: {deliveryRecord.individual_id}"
         );
 
-        // Find the product by name (using productId as the name)
-        var product = await _productService.GetProductByNameAsync(deliveryRecord.Product_Id);
+        // Find the product by OrderDetailId (using productId as the OrderDetailId)
+        var product = await _productService.GetProductByOrderDetailIdAsync(
+            deliveryRecord.Product_Id
+        );
         if (product == null)
         {
             Console.WriteLine($"Product not found: {deliveryRecord.Product_Id}");
@@ -138,14 +140,14 @@ public class ProductsController : ControllerBase
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
 
         Console.WriteLine(
-            $"Product '{product.Name}' stock updated. New amount: {updatedProduct.Amount}"
+            $"Product '{product.OrderDetailId}' stock updated. New amount: {updatedProduct.Amount}"
         );
 
         return Ok(
             new
             {
                 message = "Delivery processed successfully",
-                productName = product.Name,
+                productOrderDetailId = product.OrderDetailId,
                 newAmount = updatedProduct.Amount,
             }
         );
@@ -157,7 +159,7 @@ public class ProductsController : ControllerBase
         return new ProductResponseDto
         {
             Id = product.Id,
-            Name = product.Name,
+            OrderDetailId = product.OrderDetailId,
             // Price = product.Price,
             Amount = product.Amount,
             CreatedAt = product.CreatedAt,
