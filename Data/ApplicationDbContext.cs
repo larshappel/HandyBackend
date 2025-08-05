@@ -23,6 +23,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Product>(entity =>
         {
             entity.ToTable("orderdetails");
+            entity.Property(e => e.Id).HasColumnName("OrderDetailID"); // Id column is named differently
+
             entity.HasKey(e => e.Id); // Set the primary key for the Product entity.
             entity
                 .Property(e => e.Name)
