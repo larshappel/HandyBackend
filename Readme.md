@@ -15,6 +15,24 @@ Creates a Windows service.
 `dotnet publish -r win-x64 -c Release -o ./publish/win-x64`
 Publish it for windows to the publish directory.
 
-## Windows Security Settings
+## Windows Security & MySQL Settings (jp)
 
+### MYSQL Workbench手順
 
+- Users and Privilegesでhandybackend用のUserを作成
+
+#### Login
+
+- Limit to Hosts Matching : 127.0.0.1
+- password : `appsettings.json`内のPasswordと同一のものを設定
+
+#### Administrative Roles
+
+- DBManagerを許可
+- Applyをクリック
+
+### Zipファイルの一括ブロック解除手順
+
+- `handybackend.zip`を任意フォルダに保存
+- WindowsPowerShellを起動し`handybackend.zip`が保存されたフォルダへ移動
+- `get-childitem -recurse | unblock-File` コマンドを実行
