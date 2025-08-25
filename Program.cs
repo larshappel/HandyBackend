@@ -50,6 +50,9 @@ if (app.Environment.IsDevelopment())
 // HttpsRedirection is necessary for HTTPS in production environments.
 app.UseHttpsRedirection();
 
+// Use the custom middleware to log raw request bodies
+app.UseMiddleware<RequestLoggingMiddleware>();
+
 /*
  * Weather Forecast Test Route
  * for a basic connectivity test

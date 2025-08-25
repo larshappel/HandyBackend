@@ -1,3 +1,4 @@
+using System;
 using HandyBackend.DTOs;
 using HandyBackend.Models;
 using HandyBackend.Models.DTOs;
@@ -47,6 +48,8 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductResponseDto>> CreateProduct(ProductCreateDto createDto)
     {
+        Console.WriteLine("Post endpoint hit");
+        Console.WriteLine(createDto);
         var product = new Product
         {
             OrderDetailId = createDto.OrderDetailId,
