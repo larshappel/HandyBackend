@@ -1,8 +1,4 @@
-using System;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 
 public class RequestLoggingMiddleware
 {
@@ -21,7 +17,7 @@ public class RequestLoggingMiddleware
         // Read the stream into a string
         var reader = new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true);
         var requestBody = await reader.ReadToEndAsync();
-        
+
         // Rewind the stream so the next part of the pipeline can read it
         context.Request.Body.Position = 0;
 
