@@ -140,6 +140,7 @@ public class ProductsController : ControllerBase
         // Update the product's amount (set the amount of existing stock)
         product.Amount = deliveryRecord.Amount;
         product.UpdatedAt = DateTime.UtcNow;
+        // FIXME: Add the Individual ID to be updated here as well
 
         // Save the changes
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);

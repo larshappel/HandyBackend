@@ -35,7 +35,7 @@ public class ApplicationDbContext : DbContext
                 .Property(e => e.Price)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("SalesQuantity");
-            // and also "IdentificationNumber"
+            // FIXME: and also "IdentificationNumber"
             entity.HasIndex(e => e.Name).IsUnique();
         });
     }
