@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using HandyBackend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace HandyBackend.Data;
 
@@ -8,9 +8,7 @@ namespace HandyBackend.Data;
 public class ApplicationDbContext : DbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-        : base(options)
-    {
-    }
+        : base(options) { }
 
     public DbSet<Product> Products { get; set; } // Create a mapping between the Product class and the products table in the database.
 
@@ -20,13 +18,24 @@ public class ApplicationDbContext : DbContext
     {
         // The base class OnModelCreating method is called to ensure that the base configuration is applied.
         base.OnModelCreating(modelBuilder);
-        
+
         // Configure your entities here
         modelBuilder.Entity<Product>(entity =>
         {
+            entity.ToTable("orderdetails");
+            entity.Property(e => e.Id).HasColumnName("OrderDetailID"); // Id column is named differently
+
             entity.HasKey(e => e.Id); // Set the primary key for the Product entity.
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
+            entity
+                .Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnName("OrderDetailId"); // .HasColumnName("product_name") to specify a column name
+            entity
+                .Property(e => e.Price)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("SalesQuantity");
+            // and also "IdentificationNumber"
             entity.HasIndex(e => e.Name).IsUnique();
         });
     }

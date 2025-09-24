@@ -1,0 +1,51 @@
+name: Build and Release .NET Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest  # Use a Windows runner because of the '-r win-x64' target
+
+    permissions:
+      contents: write # This permission is required to create a release
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Create Production AppSettings
+      env:
+        CONNECTION_STRING: ${{ secrets.CONNECTION_STRING }}
+      run: |
+        echo '{
+          "ConnectionStrings": {
+            "DefaultConnection": "${{ env.CONNECTION_STRING }}"
+          }
+        }' > appsettings.Production.json
+
+    - name: Build and Publish
+      run: dotnet publish -r win-x64 -c Release -o ./publish/win-x64
+      
+    - name: Zip the publish output
+      run: Compress-Archive -Path ./publish/win-x64/* -DestinationPath ./publish/release.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: release-${{ github.run_number }}
+        name: Release ${{ github.run_number }}
+        body: |
+          Automated release of the application.
+          Commit: ${{ github.sha }}
+        files: ./publish/release.zip
