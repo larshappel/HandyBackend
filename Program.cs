@@ -16,7 +16,7 @@ var builder = WebApplication.CreateBuilder(
 builder.Host.UseWindowsService();
 
 // Listen on all network interfaces, necessary to access from other machines.
-builder.WebHost.UseUrls("http://*:5000");
+builder.WebHost.UseUrls("http://*:5024", "https://*:7024");
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -37,6 +37,20 @@ builder.Services.AddScoped<IProductService, ProductService>();
 
 var app = builder.Build();
 
+// Add a global exception handler.
+// Don't forget: This will catch all exceptions and hide them behind a generic error message.
+// Only console output can reveal more details about the exact error (such as MYSQL connection trouble)
+app.UseExceptionHandler(appBuilder =>
+{
+    appBuilder.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsJsonAsync(
+            new { error = "An unexpected server error occurred." }
+        );
+    });
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -45,7 +59,11 @@ if (app.Environment.IsDevelopment())
 }
 
 // HttpsRedirection is necessary for HTTPS in production environments.
-app.UseHttpsRedirection();
+// TODO: Manage the HTTPS certificates (the frontend must also be changed) and
+// make it more secure by using HTTPS. However now, as the data isn't sensitive
+// we'll use HTTP.
+//
+// app.UseHttpsRedirection();
 
 var summaries = new[]
 {

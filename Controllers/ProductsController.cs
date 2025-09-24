@@ -29,6 +29,7 @@ public class ProductsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetProducts()
     {
+        Console.WriteLine("Get Products? Endpoint hit");
         var products = await _productService.GetAllProductsAsync();
         var responseDtos = products.Select(MapToResponseDto);
         return Ok(responseDtos);
@@ -37,6 +38,7 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponseDto>> GetProduct(int id)
     {
+        Console.WriteLine("Get ID? Endpoint hit");
         var product = await _productService.GetProductByIdAsync(id);
         if (product == null)
             return NotFound();
@@ -47,6 +49,7 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductResponseDto>> CreateProduct(ProductCreateDto createDto)
     {
+        Console.WriteLine("Create product endpoint hit");
         var product = new Product
         {
             Name = createDto.Name,
@@ -66,6 +69,7 @@ public class ProductsController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<IActionResult> PatchProduct(int id, ProductUpdateDto updateDto)
     {
+        Console.WriteLine("Patch product endpoint hit");
         var existingProduct = await _productService.GetProductByIdAsync(id);
         if (existingProduct == null)
             return NotFound();
@@ -89,6 +93,7 @@ public class ProductsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateProduct(int id, ProductCreateDto updateDto)
     {
+        Console.WriteLine("Update product endpoint hit");
         var product = new Product
         {
             Id = id,
@@ -109,6 +114,7 @@ public class ProductsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteProduct(int id)
     {
+        Console.WriteLine("Delete product endpoint hit");
         var result = await _productService.DeleteProductAsync(id);
         if (!result)
             return NotFound();

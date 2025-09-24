@@ -1,6 +1,74 @@
-@HandyBackend_HostAddress = http://localhost:5123
+@HandyBackend_HostAddress = http://localhost:5024
 
+###
+# Weather Forecast
 GET {{HandyBackend_HostAddress}}/weatherforecast/
 Accept: application/json
+
+###
+# Products API
+
+# Get all products
+GET {{HandyBackend_HostAddress}}/api/products
+Accept: application/json
+
+###
+
+# Get product by ID (change the ID)
+GET {{HandyBackend_HostAddress}}/api/products/1
+Accept: application/json
+
+###
+
+# Create a new product
+POST {{HandyBackend_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "name": "New Gadget",
+  "description": "A shiny new gadget for your collection.",
+  "price": 99.99,
+  "amount": 10
+}
+
+###
+
+# Update a product (PUT - replaces the whole product)
+PUT {{HandyBackend_HostAddress}}/api/products/1
+Content-Type: application/json
+
+{
+  "name": "Updated Gadget",
+  "description": "An updated description for the gadget.",
+  "price": 129.99,
+  "amount": 20
+}
+
+###
+
+# Partially update a product (PATCH)
+PATCH {{HandyBackend_HostAddress}}/api/products/1
+Content-Type: application/json
+
+{
+  "price": 149.99
+}
+
+###
+
+# Delete a product by ID
+DELETE {{HandyBackend_HostAddress}}/api/products/1
+
+###
+
+# Process a delivery
+POST {{HandyBackend_HostAddress}}/api/products/delivery
+Content-Type: application/json
+
+{
+  "product_id": "New Gadget",
+  "amount": 50,
+  "individual_id": "delivery-person-123"
+}
 
 ###
