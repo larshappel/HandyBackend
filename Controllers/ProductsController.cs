@@ -21,10 +21,12 @@ namespace HandyBackend.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IProductService _productService;
+    private readonly ILogger<ProductsController> _logger;
 
-    public ProductsController(IProductService productService)
+    public ProductsController(IProductService productService, ILogger<ProductsController> logger)
     {
         _productService = productService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -120,21 +122,19 @@ public class ProductsController : ControllerBase
     [HttpPost("delivery")]
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
-        Console.WriteLine(
-            $"Delivery received - Product ID: {deliveryRecord.product_id}, Amount: {deliveryRecord.amount}, Individual ID: {deliveryRecord.individual_id}"
-        );
+        _logger.LogInformation(
+            "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}",
+            deliveryRecord.product_id, deliveryRecord.amount, deliveryRecord.individual_id);
 
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
         {
+            _logger.LogWarning("Invalid Product ID format: {ProductId}", deliveryRecord.product_id);
             return BadRequest(new { message = "Invalid Product ID format." });
         }
 
         if (!long.TryParse(deliveryRecord.individual_id, out long individualId))
         {
-            // Handle cases where individual_id might be null, empty, or non-numeric
-            // For now, we'll treat it as optional and proceed without it.
-            // Depending on requirements, you might want to return BadRequest here.
-            Console.WriteLine($"Could not parse Individual ID: {deliveryRecord.individual_id}");
+            _logger.LogInformation("Could not parse Individual ID: {IndividualId}", deliveryRecord.individual_id);
         }
 
         // Find the product by OrderDetailId (using productId as the OrderDetailId)
@@ -143,7 +143,7 @@ public class ProductsController : ControllerBase
         );
         if (product == null)
         {
-            Console.WriteLine($"Product not found: {deliveryRecord.product_id}");
+            _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
 
@@ -159,9 +159,9 @@ public class ProductsController : ControllerBase
         // Save the changes
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
 
-        Console.WriteLine(
-            $"Product '{product.OrderDetailId}' stock updated. New amount: {updatedProduct.Amount}"
-        );
+        _logger.LogInformation(
+            "Product '{OrderDetailId}' stock updated. New amount: {Amount}",
+            product.OrderDetailId, updatedProduct.Amount);
 
         return Ok(
             new

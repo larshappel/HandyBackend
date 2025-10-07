@@ -1,104 +1,82 @@
 using HandyBackend.Data;
+using HandyBackend.Middleware;
 using HandyBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(
-    new WebApplicationOptions
-    {
-        Args = args,
-        ContentRootPath = WindowsServiceHelpers.IsWindowsService()
-            ? AppContext.BaseDirectory
-            : default,
-    }
-);
+// Configure Serilog for logging
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)
+    .CreateBootstrapLogger();
 
-builder.Host.UseWindowsService();
-
-// Listen on all network interfaces, necessary to access from other machines.
-builder.WebHost.UseUrls("http://*:5000");
-
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-builder.Services.AddControllers();
-
-// Add DbContext
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(
-        // "DefaultConnection" is the name of the ConnectionString for local testing.
-        // ServerConnection is for staging.
-        // OfficeConnection is on Kawaguchi-sans machine
-        // These strings aren't part of the Git Repo so take care of them
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
-    )
-);
-
-// Add Services for dependency injection
-builder.Services.AddScoped<IProductService, ProductService>();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+try
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// HttpsRedirection is necessary for HTTPS in production environments.
-app.UseHttpsRedirection();
-
-// Use the custom middleware to log raw request bodies
-app.UseMiddleware<RequestLoggingMiddleware>();
-
-/*
- * Weather Forecast Test Route
- * for a basic connectivity test
- */
-var summaries = new[]
-{
-    "Freezing",
-    "Bracing",
-    "Chilly",
-    "Cool",
-    "Mild",
-    "Warm",
-    "Balmy",
-    "Hot",
-    "Sweltering",
-    "Scorching",
-};
-
-app.MapGet(
-        "/weatherforecast",
-        () =>
+    var builder = WebApplication.CreateBuilder(
+        new WebApplicationOptions
         {
-            var forecast = Enumerable
-                .Range(1, 5)
-                .Select(index => new WeatherForecast(
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-                .ToArray();
-            return forecast;
+            Args = args,
+            ContentRootPath = WindowsServiceHelpers.IsWindowsService()
+                ? AppContext.BaseDirectory
+                : default,
         }
-    )
-    .WithName("GetWeatherForecast")
-    .WithOpenApi();
+    );
 
-/*
- * End of Weather Forecast
- */
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .WriteTo.Console()
+        .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10));
 
-app.MapControllers();
+    builder.Host.UseWindowsService();
 
-app.Run();
+    // Listen on all network interfaces, necessary to access from other machines.
+    builder.WebHost.UseUrls("http://*:5000");
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+    // Add services to the container.
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+    builder.Services.AddControllers();
+
+    // Add DbContext
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseMySql(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
+        )
+    );
+
+    // Add Services for dependency injection
+    builder.Services.AddScoped<IProductService, ProductService>();
+
+    var app = builder.Build();
+
+    // Configure the HTTP request pipeline.
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    // Use the global exception handler middleware
+    app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
+
+    // HttpsRedirection is necessary for HTTPS in production environments.
+    app.UseHttpsRedirection();
+
+    // Use the custom middleware to log raw request bodies
+    app.UseMiddleware<RequestLoggingMiddleware>();
+
+    app.MapControllers();
+
+    app.Run();
+}
+catch (Exception ex)
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    Log.Fatal(ex, "An unhandled exception occurred during application startup");
+}
+finally
+{
+    Log.CloseAndFlush();
 }
