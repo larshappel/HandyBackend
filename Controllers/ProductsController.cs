@@ -54,7 +54,7 @@ public class ProductsController : ControllerBase
         {
             OrderDetailId = createDto.OrderDetailId,
             // Price = createDto.Price,
-            Amount = createDto.Amount,
+            Amount = (int)createDto.Amount,
         };
 
         var createdProduct = await _productService.CreateProductAsync(product);
@@ -78,7 +78,7 @@ public class ProductsController : ControllerBase
         // if (updateDto.Price.HasValue)
         //     existingProduct.Price = updateDto.Price.Value;
         if (updateDto.Amount.HasValue)
-            existingProduct.Amount = updateDto.Amount.Value;
+            existingProduct.Amount = (int)updateDto.Amount.Value;
 
         existingProduct.UpdateDate = DateTime.UtcNow.Date;
         existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;
@@ -95,7 +95,7 @@ public class ProductsController : ControllerBase
             Id = id,
             OrderDetailId = updateDto.OrderDetailId,
             // Price = updateDto.Price,
-            Amount = updateDto.Amount,
+            Amount = (int)updateDto.Amount,
             UpdateDate = DateTime.UtcNow.Date,
             UpdateTime = DateTime.UtcNow.TimeOfDay,
         };
@@ -121,21 +121,38 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
         Console.WriteLine(
-            $"Delivery received - Product ID: {deliveryRecord.Product_Id}, Amount: {deliveryRecord.Amount}, Individual ID: {deliveryRecord.individual_id}"
+            $"Delivery received - Product ID: {deliveryRecord.product_id}, Amount: {deliveryRecord.amount}, Individual ID: {deliveryRecord.individual_id}"
         );
+
+        if (!int.TryParse(deliveryRecord.product_id, out int productId))
+        {
+            return BadRequest(new { message = "Invalid Product ID format." });
+        }
+
+        if (!long.TryParse(deliveryRecord.individual_id, out long individualId))
+        {
+            // Handle cases where individual_id might be null, empty, or non-numeric
+            // For now, we'll treat it as optional and proceed without it.
+            // Depending on requirements, you might want to return BadRequest here.
+            Console.WriteLine($"Could not parse Individual ID: {deliveryRecord.individual_id}");
+        }
 
         // Find the product by OrderDetailId (using productId as the OrderDetailId)
         var product = await _productService.GetProductByOrderDetailIdAsync(
-            deliveryRecord.Product_Id
+            productId
         );
         if (product == null)
         {
-            Console.WriteLine($"Product not found: {deliveryRecord.Product_Id}");
-            return NotFound(new { message = $"Product '{deliveryRecord.Product_Id}' not found" });
+            Console.WriteLine($"Product not found: {deliveryRecord.product_id}");
+            return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
 
         // Update the product's amount (set the amount of existing stock)
-        product.Amount = deliveryRecord.Amount;
+        product.Amount = (int)deliveryRecord.amount;
+        if (long.TryParse(deliveryRecord.individual_id, out individualId))
+        {
+            product.IdentificationNumber = individualId;
+        }
         product.UpdateDate = DateTime.UtcNow.Date;
         product.UpdateTime = DateTime.UtcNow.TimeOfDay;
 

@@ -29,9 +29,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(
         // "DefaultConnection" is the name of the ConnectionString for local testing.
         // ServerConnection is for staging.
+        // OfficeConnection is on Kawaguchi-sans machine
         // These strings aren't part of the Git Repo so take care of them
-        builder.Configuration.GetConnectionString("OfficeConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("OfficeConnection"))
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))
     )
 );
 
