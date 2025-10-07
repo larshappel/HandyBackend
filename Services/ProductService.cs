@@ -48,6 +48,7 @@ public class ProductService : IProductService
         existingProduct.OrderDetailId = product.OrderDetailId;
         // existingProduct.Price = product.Price;
         existingProduct.Amount = product.Amount;
+        existingProduct.IdentificationNumber = product.IdentificationNumber;
         existingProduct.UpdateDate = DateTime.UtcNow.Date;
         existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
