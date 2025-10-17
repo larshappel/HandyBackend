@@ -151,6 +151,7 @@ public class ProductsController : ControllerBase
             _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
+        _logger.LogInformation("Found product.");
 
         // Compare the scan counts. Return early if limit reached. (LabelIssueCount vs LabelScanCount)
         _logger.LogInformation("LabelIssueCount:" + product.LabelIssueCount.ToString());
