@@ -119,12 +119,16 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
+    // This is the main endpoint we're using to transfer the data.
     [HttpPost("delivery")]
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
         _logger.LogInformation(
             "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}",
-            deliveryRecord.product_id, deliveryRecord.amount, deliveryRecord.individual_id);
+            deliveryRecord.product_id,
+            deliveryRecord.amount,
+            deliveryRecord.individual_id
+        );
 
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
         {
@@ -134,21 +138,36 @@ public class ProductsController : ControllerBase
 
         if (!long.TryParse(deliveryRecord.individual_id, out long individualId))
         {
-            _logger.LogInformation("Could not parse Individual ID: {IndividualId}", deliveryRecord.individual_id);
+            _logger.LogInformation(
+                "Could not parse Individual ID: {IndividualId}",
+                deliveryRecord.individual_id
+            );
         }
 
         // Find the product by OrderDetailId (using productId as the OrderDetailId)
-        var product = await _productService.GetProductByOrderDetailIdAsync(
-            productId
-        );
+        var product = await _productService.GetProductByOrderDetailIdAsync(productId);
         if (product == null)
         {
             _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
 
-        // Update the product's amount (set the amount of existing stock)
-        product.Amount = (int)deliveryRecord.amount;
+        // Compare the scan counts. Return early if limit reached. (LabelIssueCount vs LabelScanCount)
+        _logger.LogInformation("LabelIssueCount:" + product.LabelIssueCount.ToString());
+        _logger.LogInformation("LabelCollectCount:" + product.LabelCollectCount.ToString());
+        if (product.LabelCollectCount >= product.LabelIssueCount)
+        {
+            _logger.LogInformation("Returning early due to all labels already scanned.");
+            return Ok(new { message = "It's already scanned!" });
+            // TODO: Check if this is working
+        }
+
+        // Update the product's amount (add the amount to the existing stock)
+        product.Amount += (double)deliveryRecord.amount;
+
+        // TODO: Also increment the scan count -- check if it works correctly.
+        product.LabelCollectCount++;
+
         if (long.TryParse(deliveryRecord.individual_id, out individualId))
         {
             product.IdentificationNumber = individualId;
@@ -161,7 +180,9 @@ public class ProductsController : ControllerBase
 
         _logger.LogInformation(
             "Product '{OrderDetailId}' stock updated. New amount: {Amount}",
-            product.OrderDetailId, updatedProduct.Amount);
+            product.OrderDetailId,
+            updatedProduct.Amount
+        );
 
         return Ok(
             new
