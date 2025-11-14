@@ -166,16 +166,16 @@ public class ProductsController : ControllerBase
             // TODO: Check if this is working
         }
 
-        // Check whether the amount is in gram (has dot) or kilogram (no dot).
-        // DB stores the values in gram, so if it has a dot, divide by 1000
-        if (Math.Round(deliveryRecord.amount) != deliveryRecord.amount)
+        double amountDouble = Double.Parse(deliveryRecord.amount);
+
+        if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
         {
-            _logger.LogInformation("Amount was in kilo. Converting to gram.");
-            deliveryRecord.amount = deliveryRecord.amount * 1000d;
+            _logger.LogInformation("Amount was in gram. Converting to kilo.");
+            amountDouble = amountDouble / 1000d;
         }
 
         // Update the product's amount (add the amount to the existing stock)
-        product.Amount += (double)deliveryRecord.amount;
+        product.Amount += amountDouble;
 
         // TODO: Also increment the scan count -- check if it works correctly.
         product.LabelCollectCount++;
