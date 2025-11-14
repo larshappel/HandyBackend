@@ -119,7 +119,7 @@ public class ProductsController : ControllerBase
         return NoContent();
     }
 
-    // This is the main endpoint we're using to transfer the data.
+    // This one is the main endpoint we're using to transfer the data.
     [HttpPost("delivery")]
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
@@ -129,6 +129,9 @@ public class ProductsController : ControllerBase
             deliveryRecord.amount,
             deliveryRecord.individual_id
         );
+
+        // Cut the leading '9' (present in product id barcodes to distinguish from others)
+        deliveryRecord.product_id = deliveryRecord.product_id.Substring(1);
 
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
         {
@@ -161,6 +164,14 @@ public class ProductsController : ControllerBase
             _logger.LogInformation("Returning early due to all labels already scanned.");
             return Ok(new { message = "It's already scanned!" });
             // TODO: Check if this is working
+        }
+
+        // Check whether the amount is in gram (has dot) or kilogram (no dot).
+        // DB stores the values in gram, so if it has a dot, divide by 1000
+        if (Math.Round(deliveryRecord.amount) != deliveryRecord.amount)
+        {
+            _logger.LogInformation("Amount was in kilo. Converting to gram.");
+            deliveryRecord.amount = deliveryRecord.amount * 1000d;
         }
 
         // Update the product's amount (add the amount to the existing stock)

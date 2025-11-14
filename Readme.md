@@ -3,6 +3,8 @@
 C# Handy Backend is a .NET ASP Core Backend for the Handy application.
 It picks up API requests and stores deliveryRecords in the database.
 
+The important endpoint we're using is "delivery", it's implemented in the ProductsController
+
 ## Useful commands
 
 `scp -r xerographixoffice@192.168.10.247:Projects/Dotnet/HandyBackend/publish .`
