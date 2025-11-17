@@ -37,6 +37,101 @@ public class ProductsController : ControllerBase
         return Ok(responseDtos);
     }
 
+    // This one is the main endpoint we're using to transfer the data.
+    // The method first validates the delivery record before updating
+    // the database.
+    [HttpPost("delivery")]
+    public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
+    {
+        _logger.LogInformation(
+            "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}",
+            deliveryRecord.product_id,
+            deliveryRecord.amount,
+            deliveryRecord.individual_id
+        );
+
+        // Cut the leading '9' (present in product id barcodes to distinguish from others)
+        deliveryRecord.product_id = deliveryRecord.product_id.Substring(1);
+
+        // Early return if the product ID format is wrong (i.e. not an integer).
+        if (!int.TryParse(deliveryRecord.product_id, out int productId))
+        {
+            _logger.LogWarning("Invalid Product ID format: {ProductId}", deliveryRecord.product_id);
+            return BadRequest(new { message = "Invalid Product ID format." });
+        }
+
+        // Early return if the product ID isn't in the DB.
+        var product = await _productService.GetProductByOrderDetailIdAsync(productId);
+        if (product == null)
+        {
+            _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
+            return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
+        }
+
+        // Early return if amount is formatted incorrectly (needs to represent a double)
+        if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
+        {
+            _logger.LogWarning("Invalid amount format.");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
+        // Early return if scan count limit reached. (LabelIssueCount vs LabelScanCount)
+        if (product.LabelCollectCount >= product.LabelIssueCount)
+        {
+            _logger.LogInformation(
+                "All labels already scanned. (LabelIssueCount vs LabelCollectCount"
+            );
+            return Ok(new { message = "It's already scanned!" });
+        }
+
+        // The prerequisites and early returns are finished.
+        // Next the data will be interpreted and written to the DB.
+
+        if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
+        {
+            _logger.LogInformation("Amount was in gram. Converting to kilo.");
+            amountDouble = amountDouble / 1000d;
+        }
+
+        // Update the product's amount (add the amount to the existing stock)
+        product.Amount += amountDouble;
+
+        // Count the times this label has been scanned.
+        product.LabelCollectCount++;
+
+        if (long.TryParse(deliveryRecord.individual_id, out long individualId))
+        {
+            product.IdentificationNumber = individualId;
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Could not parse Individual ID: {IndividualId}. Continuing without individual ID.",
+                deliveryRecord.individual_id
+            );
+        }
+        product.UpdateDate = DateTime.UtcNow.Date;
+        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
+
+        // Save the changes
+        var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
+
+        _logger.LogInformation(
+            "Product '{OrderDetailId}' stock updated. New amount: {Amount}",
+            product.OrderDetailId,
+            updatedProduct.Amount
+        );
+
+        return Ok(
+            new
+            {
+                message = "Delivery processed successfully",
+                productOrderDetailId = product.OrderDetailId,
+                newAmount = updatedProduct.Amount,
+            }
+        );
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductResponseDto>> GetProduct(int id)
     {
@@ -117,93 +212,6 @@ public class ProductsController : ControllerBase
             return NotFound();
 
         return NoContent();
-    }
-
-    // This one is the main endpoint we're using to transfer the data.
-    [HttpPost("delivery")]
-    public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
-    {
-        _logger.LogInformation(
-            "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}",
-            deliveryRecord.product_id,
-            deliveryRecord.amount,
-            deliveryRecord.individual_id
-        );
-
-        // Cut the leading '9' (present in product id barcodes to distinguish from others)
-        deliveryRecord.product_id = deliveryRecord.product_id.Substring(1);
-
-        if (!int.TryParse(deliveryRecord.product_id, out int productId))
-        {
-            _logger.LogWarning("Invalid Product ID format: {ProductId}", deliveryRecord.product_id);
-            return BadRequest(new { message = "Invalid Product ID format." });
-        }
-
-        if (!long.TryParse(deliveryRecord.individual_id, out long individualId))
-        {
-            _logger.LogInformation(
-                "Could not parse Individual ID: {IndividualId}",
-                deliveryRecord.individual_id
-            );
-        }
-
-        // Find the product by OrderDetailId (using productId as the OrderDetailId)
-        var product = await _productService.GetProductByOrderDetailIdAsync(productId);
-        if (product == null)
-        {
-            _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
-            return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
-        }
-        _logger.LogInformation("Found product.");
-
-        // Compare the scan counts. Return early if limit reached. (LabelIssueCount vs LabelScanCount)
-        _logger.LogInformation("LabelIssueCount:" + product.LabelIssueCount.ToString());
-        _logger.LogInformation("LabelCollectCount:" + product.LabelCollectCount.ToString());
-        if (product.LabelCollectCount >= product.LabelIssueCount)
-        {
-            _logger.LogInformation("Returning early due to all labels already scanned.");
-            return Ok(new { message = "It's already scanned!" });
-            // TODO: Check if this is working
-        }
-
-        double amountDouble = Double.Parse(deliveryRecord.amount);
-
-        if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
-        {
-            _logger.LogInformation("Amount was in gram. Converting to kilo.");
-            amountDouble = amountDouble / 1000d;
-        }
-
-        // Update the product's amount (add the amount to the existing stock)
-        product.Amount += amountDouble;
-
-        // TODO: Also increment the scan count -- check if it works correctly.
-        product.LabelCollectCount++;
-
-        if (long.TryParse(deliveryRecord.individual_id, out individualId))
-        {
-            product.IdentificationNumber = individualId;
-        }
-        product.UpdateDate = DateTime.UtcNow.Date;
-        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
-
-        // Save the changes
-        var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
-
-        _logger.LogInformation(
-            "Product '{OrderDetailId}' stock updated. New amount: {Amount}",
-            product.OrderDetailId,
-            updatedProduct.Amount
-        );
-
-        return Ok(
-            new
-            {
-                message = "Delivery processed successfully",
-                productOrderDetailId = product.OrderDetailId,
-                newAmount = updatedProduct.Amount,
-            }
-        );
     }
 
     // Helper method to map Product to ProductResponseDto
