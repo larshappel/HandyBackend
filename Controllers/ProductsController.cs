@@ -89,7 +89,11 @@ public class ProductsController : ControllerBase
 
         if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
         {
-            _logger.LogInformation("Amount was in gram. Converting to kilo.");
+            _logger.LogInformation("Amount has dot. It was in kilo, use as is.");
+        }
+        else
+        {
+            _logger.LogInformation("Amount has no dot. It was in gram. Converting to kilo.");
             amountDouble = amountDouble / 1000d;
         }
 
