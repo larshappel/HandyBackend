@@ -51,7 +51,7 @@ public class ProductsController : ControllerBase
         );
 
         // Cut the leading '9' (present in product id barcodes to distinguish from others)
-        deliveryRecord.product_id = deliveryRecord.product_id.Substring(1);
+        deliveryRecord.product_id = deliveryRecord.product_id.Substring(4);
 
         // Early return if the product ID format is wrong (i.e. not an integer).
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
