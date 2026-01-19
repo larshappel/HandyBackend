@@ -35,7 +35,7 @@ try
         // Sink for client-accessible logs
         .WriteTo.Logger(lc => lc
             .Filter.ByIncludingOnly(e => e.Properties.ContainsKey("LogType") && e.Properties["LogType"] is ScalarValue sv && sv.Value as string == "ClientAccess")
-            .WriteTo.File("logs/client-access-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)));
+            .WriteTo.File(context.Configuration.GetValue<string>("Logging:CustomLogger:ClientAccessLogPath") ?? "logs/client-access-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)));
 
     builder.Host.UseWindowsService();
 
