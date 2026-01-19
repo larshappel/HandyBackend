@@ -1,10 +1,12 @@
 using HandyBackend.Data;
+using HandyBackend.Logging;
 using HandyBackend.Middleware;
 using HandyBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.File;
 
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
@@ -24,18 +26,42 @@ try
         }
     );
 
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .WriteTo.Console()
-        // Default sink for general logs
-        .WriteTo.Logger(lc => lc
-            .Filter.ByExcluding(e => e.Properties.ContainsKey("LogType") && e.Properties["LogType"] is ScalarValue sv && sv.Value as string == "ClientAccess")
-            .WriteTo.File("logs/backend-log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10))
-        // Sink for client-accessible logs
-        .WriteTo.Logger(lc => lc
-            .Filter.ByIncludingOnly(e => e.Properties.ContainsKey("LogType") && e.Properties["LogType"] is ScalarValue sv && sv.Value as string == "ClientAccess")
-            .WriteTo.File(context.Configuration.GetValue<string>("Logging:CustomLogger:ClientAccessLogPath") ?? "logs/client-access-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)));
+    builder.Host.UseSerilog(
+        (context, services, configuration) =>
+            configuration
+                .ReadFrom.Configuration(context.Configuration)
+                .ReadFrom.Services(services)
+                .WriteTo.Console()
+                // Default sink for general logs
+                .WriteTo.Logger(lc =>
+                    lc.Filter.ByExcluding(e =>
+                            e.Properties.ContainsKey("LogType")
+                            && e.Properties["LogType"] is ScalarValue sv
+                            && sv.Value as string == "ClientAccess"
+                        )
+                        .WriteTo.File(
+                            "logs/backend-log-.txt",
+                            rollingInterval: RollingInterval.Day,
+                            retainedFileCountLimit: 10
+                        )
+                )
+                // Sink for client-accessible logs
+                .WriteTo.Logger(lc =>
+                    lc.Filter.ByIncludingOnly(e =>
+                            e.Properties.ContainsKey("LogType")
+                            && e.Properties["LogType"] is ScalarValue sv
+                            && sv.Value as string == "ClientAccess"
+                        )
+                        .WriteTo.File(
+                            context.Configuration.GetValue<string>(
+                                "Logging:CustomLogger:ClientAccessLogPath"
+                            ) ?? "logs/client-access-.txt",
+                            rollingInterval: RollingInterval.Day,
+                            retainedFileCountLimit: 10,
+                            hooks: new CsvHeaderHooks()
+                        )
+                )
+    );
 
     builder.Host.UseWindowsService();
 

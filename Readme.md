@@ -7,6 +7,8 @@ The important endpoint we're using is "delivery", it's implemented in the Produc
 
 ## Useful commands
 
+Building, deploying, copying...
+
 `scp -r xerographixoffice@192.168.10.247:Projects/Dotnet/HandyBackend/publish .`
 Executed on the Windows machine (elevated Powershell) to pull things over to
 the Windows machine.
@@ -16,6 +18,11 @@ Creates a Windows service.
 
 `dotnet publish -r win-x64 -c Release -o ./publish/win-x64`
 Publish it for windows to the publish directory.
+
+## Logging
+
+The position of the client facing logfile is specified in `appsettings.json` ->
+CustomLogger -> ClientAccessLogPath.
 
 ## Windows Security & MySQL Settings (jp)
 
