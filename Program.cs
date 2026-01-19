@@ -4,6 +4,7 @@ using HandyBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
+using Serilog.Events;
 
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
@@ -27,7 +28,14 @@ try
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
         .WriteTo.Console()
-        .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10));
+        // Default sink for general logs
+        .WriteTo.Logger(lc => lc
+            .Filter.ByExcluding(e => e.Properties.ContainsKey("LogType") && e.Properties["LogType"] is ScalarValue sv && sv.Value as string == "ClientAccess")
+            .WriteTo.File("logs/backend-log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10))
+        // Sink for client-accessible logs
+        .WriteTo.Logger(lc => lc
+            .Filter.ByIncludingOnly(e => e.Properties.ContainsKey("LogType") && e.Properties["LogType"] is ScalarValue sv && sv.Value as string == "ClientAccess")
+            .WriteTo.File("logs/client-access-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)));
 
     builder.Host.UseWindowsService();
 

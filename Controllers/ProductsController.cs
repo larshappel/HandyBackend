@@ -43,12 +43,17 @@ public class ProductsController : ControllerBase
     [HttpPost("delivery")]
     public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
     {
-        _logger.LogInformation(
-            "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}",
-            deliveryRecord.product_id,
-            deliveryRecord.amount,
-            deliveryRecord.individual_id
-        );
+        // Log string will be prefixed by a timestamp, suffixed by a status msg -> CSV format
+        string logStringBase =
+            $",{deliveryRecord.product_id}, {deliveryRecord.amount}, {deliveryRecord.individual_id}, {deliveryRecord.device_id}, ";
+
+        // _logger.LogInformation(
+        //     "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}, Device ID: {DeviceID}",
+        //     deliveryRecord.product_id,
+        //     deliveryRecord.amount,
+        //     deliveryRecord.individual_id,
+        //     deliveryRecord.device_id
+        // );
 
         // Cut the leading '9' (present in product id barcodes to distinguish from others)
         deliveryRecord.product_id = deliveryRecord.product_id.Substring(4);
@@ -56,7 +61,8 @@ public class ProductsController : ControllerBase
         // Early return if the product ID format is wrong (i.e. not an integer).
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
         {
-            _logger.LogWarning("Invalid Product ID format: {ProductId}", deliveryRecord.product_id);
+            _logger.LogWarning(logStringBase + ", Invalid product ID");
+            LogClientAccess(logStringBase + "Invalid product ID");
             return BadRequest(new { message = "Invalid Product ID format." });
         }
 
@@ -64,14 +70,16 @@ public class ProductsController : ControllerBase
         var product = await _productService.GetProductByOrderDetailIdAsync(productId);
         if (product == null)
         {
-            _logger.LogWarning("Product not found: {ProductId}", deliveryRecord.product_id);
+            _logger.LogWarning(logStringBase + ", Non-existent product ID");
+            LogClientAccess(logStringBase + "Non-existent product ID");
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
 
         // Early return if amount is formatted incorrectly (needs to represent a double)
         if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
         {
-            _logger.LogWarning("Invalid amount format.");
+            _logger.LogWarning(logStringBase + ", Invalid amount format");
+            LogClientAccess(logStringBase + "Invalid amount format");
             return BadRequest(new { message = "Invalid amount format." });
         }
 
@@ -79,8 +87,10 @@ public class ProductsController : ControllerBase
         if (product.LabelCollectCount >= product.LabelIssueCount)
         {
             _logger.LogInformation(
-                "All labels already scanned. (LabelIssueCount vs LabelCollectCount"
+                logStringBase
+                    + ", All labels already scanned. (LabelIssueCount vs LabelCollectCount"
             );
+            LogClientAccess(logStringBase + "Excess Label Scan");
             return Ok(new { message = "It's already scanned!" });
         }
 
@@ -90,6 +100,7 @@ public class ProductsController : ControllerBase
         if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
         {
             _logger.LogInformation("Amount has dot. It was in kilo, use as is.");
+            // do nothing
         }
         else
         {
@@ -109,10 +120,7 @@ public class ProductsController : ControllerBase
         }
         else
         {
-            _logger.LogInformation(
-                "Could not parse Individual ID: {IndividualId}. Continuing without individual ID.",
-                deliveryRecord.individual_id
-            );
+            _logger.LogInformation(logStringBase + ", no valid individual ID");
         }
         product.UpdateDate = DateTime.UtcNow.Date;
         product.UpdateTime = DateTime.UtcNow.TimeOfDay;
@@ -120,11 +128,7 @@ public class ProductsController : ControllerBase
         // Save the changes
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
 
-        _logger.LogInformation(
-            "Product '{OrderDetailId}' stock updated. New amount: {Amount}",
-            product.OrderDetailId,
-            updatedProduct.Amount
-        );
+        LogClientAccess(logStringBase + "Amount updated: " + updatedProduct?.Amount);
 
         return Ok(
             new
@@ -134,6 +138,18 @@ public class ProductsController : ControllerBase
                 newAmount = updatedProduct.Amount,
             }
         );
+    }
+
+    /**
+     * Uses the logger to write to a client-accessible log location.
+     */
+    private void LogClientAccess(string msg)
+    {
+        // 'Using' keyword to dispose of the scope (ClientAccess logtype) automatically after the block
+        using (_logger.BeginScope(new Dictionary<string, object> { ["LogType"] = "ClientAccess" }))
+        {
+            _logger.LogInformation(msg);
+        }
     }
 
     [HttpGet("{id}")]
