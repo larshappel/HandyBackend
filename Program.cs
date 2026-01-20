@@ -8,6 +8,8 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.File;
 
+int DEFAULT_LOG_COUNT = 10;
+
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -42,7 +44,7 @@ try
                         .WriteTo.File(
                             "logs/backend-log-.txt",
                             rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: 10
+                            retainedFileCountLimit: DEFAULT_LOG_COUNT
                         )
                 )
                 // Sink for client-accessible logs
@@ -57,7 +59,10 @@ try
                                 "Logging:CustomLogger:ClientAccessLogPath"
                             ) ?? "logs/client-access-.txt",
                             rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: 10,
+                            retainedFileCountLimit: context.Configuration.GetValue<int>(
+                                "Logging:CustomLogger:ClientAccessLogCount",
+                                DEFAULT_LOG_COUNT
+                            ),
                             hooks: new CsvHeaderHooks()
                         )
                 )
