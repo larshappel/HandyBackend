@@ -9,6 +9,7 @@ using Serilog.Events;
 using Serilog.Sinks.File;
 
 int DEFAULT_LOG_COUNT = 10;
+int DEFAULT_PORT = 5000;
 
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
@@ -71,7 +72,8 @@ try
     builder.Host.UseWindowsService();
 
     // Listen on all network interfaces, necessary to access from other machines.
-    builder.WebHost.UseUrls("http://*:5000");
+    var port = builder.Configuration.GetValue<int>("Hosting:Port", DEFAULT_PORT);
+    builder.WebHost.UseUrls($"http://*:{port}");
 
     // Add services to the container.
     builder.Services.AddEndpointsApiExplorer();
