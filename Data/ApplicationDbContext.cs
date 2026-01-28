@@ -25,7 +25,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("orderdetails");
             entity.Property(e => e.Id).HasColumnName("OrderDetailID"); // Id column is named differently
             entity.HasKey(e => e.Id); // Set the primary key for the Product entity.
-            entity.Property(e => e.OrderDetailId).IsRequired().HasColumnName("OrderDetailId");
+            entity.Property(e => e.OrderDetailId).IsRequired().HasColumnName("OrderDetailRef");
             entity
                 .Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")

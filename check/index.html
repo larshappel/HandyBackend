@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Handy Backend Check UI</title>
+    <style>
+      body {
+        font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;
+        margin: 0;
+        background:#05060a;
+        color:#f4f7fb;
+      }
+      header {
+        padding: 1rem 2rem 0;
+      }
+      header h1 {
+        margin:0;
+        font-size:1.8rem;
+      }
+      header p {
+        margin-top:.4rem;
+        color:#b0b5c6;
+      }
+      .destination-panel {
+        margin-top: 1rem;
+        background: #131620;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        border: 1px solid #1f2330;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .destination-panel p {
+        margin: 0.2rem 0;
+      }
+      .destination-value {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .destination-hint {
+        color: #a5acc0;
+        font-size: 0.85rem;
+      }
+      main {
+        padding: 1rem 2rem 3rem;
+      }
+      .panel {
+        border:1px solid #2b2f3c;
+        border-radius:12px;
+        margin:1.5rem 0;
+        padding:1rem;
+        background:#0f1118;
+        box-shadow:0 10px 30px rgba(0,0,0,.35);
+      }
+      .panel-header {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        flex-wrap:wrap;
+      }
+      .panel-header h2 {
+        margin:0;
+        font-size:1.2rem;
+      }
+      button {
+        padding:.5rem 1rem;
+        border:none;
+        border-radius:999px;
+        background:#3c9cff;
+        color:#fff;
+        font-weight:600;
+        cursor:pointer;
+        transition:.2s;
+      }
+      button:disabled {
+        opacity:.6;
+        cursor:progress;
+      }
+      table {
+        width:100%;
+        border-collapse:collapse;
+        margin-top:1rem;
+      }
+      th,
+      td {
+        text-align:left;
+        padding:.6rem;
+        font-size:.9rem;
+      }
+      thead {
+        background:#171d2a;
+      }
+      tbody tr:nth-child(odd) {
+        background:#0b0d15;
+      }
+      tbody tr:nth-child(even) {
+        background:#131624;
+      }
+      .status {
+        margin-top:.8rem;
+        color:#9ea5b9;
+      }
+      .badge {
+        display:inline-flex;
+        padding:.2rem .6rem;
+        border-radius:999px;
+        font-size:.8rem;
+        background:#243447;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Handy Backend チェック UI</h1>
+      <p>
+        フロントエンドから受信したJSON、レスポンス、DB更新の痕跡を
+        表形式で確認できます。
+      </p>
+      <div class="destination-panel">
+        <p>送信先（受け側）のIPとポート</p>
+        <p class="destination-value">
+          <span id="destinationUrl">取得中...</span>
+          <small id="machineName"></small>
+        </p>
+        <p class="destination-hint">
+          ローカル IPv4: <span id="localIps">取得中...</span>
+        </p>
+      </div>
+    </header>
+    <main>
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Product スナップショット</h2>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <span class="badge">orderdetails / Product レコード</span>
+            <button type="button" id="refreshButton">最新情報を取得</button>
+          </div>
+        </div>
+        <div class="status">
+          OrderDetailId, Amount, LabelCollectCount, IdentificationNumber, UpdatedAt が表示されます。
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>OrderDetailId</th>
+              <th>Amount</th>
+              <th>LabelCollectCount</th>
+              <th>IdentificationNumber</th>
+              <th>UpdatedAt</th>
+            </tr>
+          </thead>
+          <tbody id="productsTable"></tbody>
+        </table>
+      </div>
+    </main>
+    <script>
+      const productEndpoint = '/api/check/products';
+      const infoEndpoint = '/api/check/info';
+      const productsTable = document.querySelector('#productsTable');
+      const refreshButton = document.querySelector('#refreshButton');
+      const destinationUrlEl = document.querySelector('#destinationUrl');
+      const machineNameEl = document.querySelector('#machineName');
+      const localIpsEl = document.querySelector('#localIps');
+
+      async function fetchProducts() {
+        try {
+          const res = await fetch(productEndpoint);
+          const payloadText = await res.text();
+
+          if (!res.ok) {
+            let errorMessage = payloadText;
+            try {
+              const errorPayload = JSON.parse(payloadText);
+              errorMessage = errorPayload.detail || errorPayload.message || payloadText;
+            } catch {
+              // ignore parse failure
+            }
+            throw new Error(errorMessage || 'Product取得失敗');
+          }
+
+          const payload = JSON.parse(payloadText);
+          productsTable.innerHTML = '';
+          payload.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${item.orderDetailId}</td>
+              <td>${item.amount.toFixed(3)}</td>
+              <td>${item.labelCollectCount}</td>
+              <td>${item.identificationNumber ?? '-'}</td>
+              <td>${item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '-'}</td>
+            `;
+            productsTable.appendChild(tr);
+          });
+        } catch (err) {
+          console.error(err);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="5">Product snapshot取得エラー: ${err.message}</td>`;
+          productsTable.innerHTML = '';
+          productsTable.appendChild(tr);
+        }
+      }
+
+      async function fetchDestinationInfo() {
+        try {
+          const res = await fetch(infoEndpoint);
+          if (!res.ok) throw new Error(res.statusText || '送信先取得失敗');
+          const payload = await res.json();
+          destinationUrlEl.textContent =
+            payload.destinationUrl || `${payload.scheme}://${payload.host}${payload.port ? `:${payload.port}` : ''}`;
+          machineNameEl.textContent = payload.machineName ? `(${payload.machineName})` : '';
+          const portInfo = payload.port ? payload.port : 'ポート不明';
+          const ipv4s = payload.localIpv4Addresses ?? [];
+          localIpsEl.textContent = ipv4s.length
+            ? `${ipv4s.join(' / ')} PORT:${portInfo}`
+            : `検出されませんでした (PORT:${portInfo})`;
+        } catch (err) {
+          console.error(err);
+          destinationUrlEl.textContent = '送信先情報取得エラー';
+          machineNameEl.textContent = '';
+          localIpsEl.textContent = '取得できませんでした';
+        }
+      }
+
+      async function refresh() {
+        refreshButton.disabled = true;
+        refreshButton.textContent = '更新中…';
+        await Promise.all([fetchProducts(), fetchDestinationInfo()]);
+        refreshButton.disabled = false;
+        refreshButton.textContent = '最新情報を取得';
+      }
+
+      refreshButton.addEventListener('click', () => refresh());
+      window.addEventListener('load', () => refresh());
+    </script>
+  </body>
+</html>

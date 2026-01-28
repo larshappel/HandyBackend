@@ -58,7 +58,7 @@ and save entities.
 - **Role:** Data Access / Unit of Work
 - **Description:** This class is the bridge between the C# code and the
 database. It inherits from Entity Framework Core's `DbContext`. It contains
-`DbSet<Product>` which represents the `orderdetails` table. The
+`DbSet<Product>` which represents the `orderdetails` table（商品情報テーブル）. The
 `OnModelCreating` method is used to explicitly map the `Product` class
 properties to their corresponding database column names (e.g., `Amount` ->
 `SalesQuantity`).
@@ -67,7 +67,7 @@ properties to their corresponding database column names (e.g., `Amount` ->
 
 - **Role:** Data Model
 - **Description:** This is a simple C# class (a POCO) that represents a single
-record in the `orderdetails` table. EF Core uses this model to read data from
+record in the `orderdetails` table（商品情報テーブル）. EF Core uses this model to read data from
 and write data to the database.
 
 ### 6. DTOs (`DeliveryRecordDto.cs`, etc.)

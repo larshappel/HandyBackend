@@ -1,15 +1,17 @@
+using System.IO;
 using HandyBackend.Data;
 using HandyBackend.Logging;
 using HandyBackend.Middleware;
 using HandyBackend.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.File;
 
 int DEFAULT_LOG_COUNT = 10;
-int DEFAULT_PORT = 5000;
+int DEFAULT_PORT = 5001;
 
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
@@ -108,6 +110,29 @@ try
 
     // Use the custom middleware to log raw request bodies
     app.UseMiddleware<RequestLoggingMiddleware>();
+
+    var checkDirectory = Path.Combine(builder.Environment.ContentRootPath, "check");
+    if (!Directory.Exists(checkDirectory))
+    {
+        Directory.CreateDirectory(checkDirectory);
+    }
+
+    app.UseStaticFiles(
+        new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(checkDirectory),
+            RequestPath = "/check"
+        }
+    );
+
+    app.MapGet(
+        "/check",
+        context =>
+        {
+            context.Response.Redirect("/check/index.html", permanent: false);
+            return Task.CompletedTask;
+        }
+    );
 
     app.MapControllers();
 
