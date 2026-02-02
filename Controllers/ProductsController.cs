@@ -66,6 +66,14 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = "Invalid Product ID format." });
         }
 
+        // Early return if amount is formatted incorrectly (needs to represent a double)
+        if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
+        {
+            _logger.LogWarning(logStringBase + ", Invalid amount format");
+            LogClientAccess(logStringBase + "Invalid amount format");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
         // Early return if the product ID isn't in the DB.
         var product = await _productService.GetProductByOrderDetailIdAsync(productId);
         if (product == null)
@@ -73,14 +81,6 @@ public class ProductsController : ControllerBase
             _logger.LogWarning(logStringBase + ", Non-existent product ID");
             LogClientAccess(logStringBase + "Non-existent product ID");
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
-        }
-
-        // Early return if amount is formatted incorrectly (needs to represent a double)
-        if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
-        {
-            _logger.LogWarning(logStringBase + ", Invalid amount format");
-            LogClientAccess(logStringBase + "Invalid amount format");
-            return BadRequest(new { message = "Invalid amount format." });
         }
 
         // Early return if scan count limit reached. (LabelIssueCount vs LabelScanCount)
