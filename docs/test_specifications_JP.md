@@ -143,9 +143,7 @@ device_id: "1"
 
 操作: 妥当なペイロードで POST する。
 
-確認: コントローラは `updatedProduct` の null チェックを行っておらず
-`NullReferenceException` が発生する。どのような挙動にすべきか定義され次第、409
-もしくは 500 へマッピングするなど、欠陥として記録する。
+確認: HTTP 200 と `{ message: "The product no longer exists." }` のペイロードを返し、それ以上の更新が試行されないこと。
 
 ## 未解決事項 / 追加検討点
 

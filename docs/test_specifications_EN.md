@@ -143,10 +143,8 @@ Arrange: `GetProductByOrderDetailIdAsync` returns the seeded product but
 
 Act: POST with valid payload.
 
-Assert: The controller currently dereferences
-`updatedProduct` without null-check, leading to a `NullReferenceException`.
-Document this as a defect and capture it once behaviour is defined (likely
-should translate to 409 or 500).
+Assert: HTTP 200 with payload `{ message: "The product no longer exists." }`.
+No further updates should be attempted.
 
 ## Open Questions / Further considerations
 

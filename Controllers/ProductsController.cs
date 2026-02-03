@@ -127,6 +127,10 @@ public class ProductsController : ControllerBase
 
         // Save the changes
         var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
+        if (updatedProduct == null)
+        {
+            return Ok(new { message = "The product no longer exists." });
+        }
 
         LogClientAccess(logStringBase + "Amount updated: " + updatedProduct?.Amount);
 
