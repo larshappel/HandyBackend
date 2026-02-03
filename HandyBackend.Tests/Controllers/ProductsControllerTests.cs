@@ -100,12 +100,17 @@ public class ProductsControllerTests
     // TC3 reference: docs/test_specifications_EN.md –
     // Product IDs shorter than the expected prefix currently throw; test exposes the defect.
     [Fact]
-    public async Task ProcessDelivery_WithShortProductId_ThrowsOutOfRange()
+    public async Task ProcessDelivery_WithShortProductId_ReturnsBadRequest()
     {
         var harness = new ProductsControllerTestHarness();
         var request = harness.BuildDeliveryRequest(dto => dto.product_id = "123");
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => harness.Controller.ProcessDelivery(request));
+        var result = await harness.Controller.ProcessDelivery(request);
+
+        var badRequest = Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(result);
+        var error = ControllerResponseReader.ReadAnonymous<ErrorResponse>(badRequest.Value!);
+
+        Assert.Equal("Invalid Product ID format.", error.message);
 
         harness.ProductServiceMock.Verify(
             service => service.GetProductByOrderDetailIdAsync(It.IsAny<int>()),

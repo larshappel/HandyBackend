@@ -61,10 +61,8 @@ Arrange: Service is not called because request preprocessing fails.
 Act: POST with `{ product_id: "123", amount: "1.0", individual_id: "1",
 device_id: "1" }`.
 
-Assert: Request is rejected gracefully. Desired behaviour is HTTP 400 with
-message explaining the malformed barcode; current implementation throws
-`ArgumentOutOfRangeException` due to `Substring(4)`, so this test will surface
-the bug until guarded.
+Assert: HTTP 400 with payload `{ message: "Invalid Product ID format." }`; the
+service should remain untouched.
 
 ### TC4 Non-numeric Product Id After Prefix Removal
 

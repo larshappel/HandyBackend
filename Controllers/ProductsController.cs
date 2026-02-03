@@ -55,13 +55,20 @@ public class ProductsController : ControllerBase
         //     deliveryRecord.device_id
         // );
 
+
+        // Check if the product_id is actually long enough...
+        if (!(deliveryRecord.product_id.Length > 4))
+        {
+            LogClientAccess(logStringBase + "Invalid product ID");
+            return BadRequest(new { message = "Invalid Product ID format." });
+        }
+
         // Cut the leading '9' (present in product id barcodes to distinguish from others)
         deliveryRecord.product_id = deliveryRecord.product_id.Substring(4);
 
         // Early return if the product ID format is wrong (i.e. not an integer).
         if (!int.TryParse(deliveryRecord.product_id, out int productId))
         {
-            _logger.LogWarning(logStringBase + ", Invalid product ID");
             LogClientAccess(logStringBase + "Invalid product ID");
             return BadRequest(new { message = "Invalid Product ID format." });
         }
@@ -69,7 +76,6 @@ public class ProductsController : ControllerBase
         // Early return if amount is formatted incorrectly (needs to represent a double)
         if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
         {
-            _logger.LogWarning(logStringBase + ", Invalid amount format");
             LogClientAccess(logStringBase + "Invalid amount format");
             return BadRequest(new { message = "Invalid amount format." });
         }
@@ -78,7 +84,6 @@ public class ProductsController : ControllerBase
         var product = await _productService.GetProductByOrderDetailIdAsync(productId);
         if (product == null)
         {
-            _logger.LogWarning(logStringBase + ", Non-existent product ID");
             LogClientAccess(logStringBase + "Non-existent product ID");
             return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
         }
@@ -86,10 +91,6 @@ public class ProductsController : ControllerBase
         // Early return if scan count limit reached. (LabelIssueCount vs LabelScanCount)
         if (product.LabelCollectCount >= product.LabelIssueCount)
         {
-            _logger.LogInformation(
-                logStringBase
-                    + ", All labels already scanned. (LabelIssueCount vs LabelCollectCount"
-            );
             LogClientAccess(logStringBase + "Excess Label Scan");
             return Ok(new { message = "It's already scanned!" });
         }
@@ -149,7 +150,11 @@ public class ProductsController : ControllerBase
      */
     private void LogClientAccess(string msg)
     {
-        // 'Using' keyword to dispose of the scope (ClientAccess logtype) automatically after the block
+        // First log to standard output as well
+        _logger.LogInformation(msg);
+
+        // 'Using' keyword to dispose of the scope (ClientAccess logtype) automatically after the block,
+        // the log client logs.
         using (_logger.BeginScope(new Dictionary<string, object> { ["LogType"] = "ClientAccess" }))
         {
             _logger.LogInformation(msg);

@@ -63,11 +63,7 @@ individual_id: "1",
 device_id: "1"
 }` を POST する。
 
-確認:
-  リクエストが適切に拒否されること。望ましい動作は不正なバーコードを説明する HTTP
-  400 レスポンスだが、現実装では `Substring(4)` により
-  `ArgumentOutOfRangeException`
-  が送出されるため、このテストは防御コードが追加されるまでバグを顕在化させる。
+確認: HTTP 400 と `{ message: "Invalid Product ID format." }` のペイロードを返し、サービス呼び出しは行われないこと。
 
 ### TC4 プレフィックス除去後が数値でない Product ID
 
