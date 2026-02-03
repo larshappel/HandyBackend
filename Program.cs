@@ -14,7 +14,12 @@ int DEFAULT_PORT = 5000;
 // Configure Serilog for logging
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 10)
+    .WriteTo.File(
+        "logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: DEFAULT_LOG_COUNT,
+        shared: true
+    )
     .CreateBootstrapLogger();
 
 try
@@ -45,7 +50,8 @@ try
                         .WriteTo.File(
                             "logs/backend-log-.txt",
                             rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: DEFAULT_LOG_COUNT
+                            retainedFileCountLimit: DEFAULT_LOG_COUNT,
+                            shared: true
                         )
                 )
                 // Sink for client-accessible logs
@@ -64,7 +70,8 @@ try
                                 "Logging:CustomLogger:ClientAccessLogCount",
                                 DEFAULT_LOG_COUNT
                             ),
-                            hooks: new CsvHeaderHooks()
+                            hooks: new CsvHeaderHooks(),
+                            shared: true
                         )
                 )
     );
