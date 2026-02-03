@@ -28,7 +28,7 @@ namespace HandyBackend.Logging
                     var writer = new StreamWriter(underlyingStream, encoding, 1024, leaveOpen: true)
                 )
                 {
-                    writer.WriteLine("Timestamp, Product_ID, Amount, Individual_ID, Message");
+                    writer.WriteLine("日時, 商品ID, 数量, 個体識別番号, メッセージ");
                 }
             }
 
