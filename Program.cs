@@ -11,15 +11,8 @@ using Serilog.Sinks.File;
 int DEFAULT_LOG_COUNT = 10;
 int DEFAULT_PORT = 5000;
 
-// Configure Serilog for logging
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File(
-        "logs/log-.txt",
-        rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: DEFAULT_LOG_COUNT,
-    )
-    .CreateBootstrapLogger();
+// Configure Serilog for logging and guard against file sink failures
+Log.Logger = CreateBootstrapLogger(DEFAULT_LOG_COUNT);
 
 try
 {
@@ -34,43 +27,20 @@ try
     );
 
     builder.Host.UseSerilog(
-        (context, services, configuration) =>
-            configuration
+        (context, services, loggerConfiguration) =>
+        {
+            loggerConfiguration
                 .ReadFrom.Configuration(context.Configuration)
                 .ReadFrom.Services(services)
-                .WriteTo.Console()
-                // Default sink for general logs
-                .WriteTo.Logger(lc =>
-                    lc.Filter.ByExcluding(e =>
-                            e.Properties.ContainsKey("LogType")
-                            && e.Properties["LogType"] is ScalarValue sv
-                            && sv.Value as string == "ClientAccess"
-                        )
-                        .WriteTo.File(
-                            "logs/backend-log-.txt",
-                            rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: DEFAULT_LOG_COUNT,
-                        )
-                )
-                // Sink for client-accessible logs
-                .WriteTo.Logger(lc =>
-                    lc.Filter.ByIncludingOnly(e =>
-                            e.Properties.ContainsKey("LogType")
-                            && e.Properties["LogType"] is ScalarValue sv
-                            && sv.Value as string == "ClientAccess"
-                        )
-                        .WriteTo.File(
-                            context.Configuration.GetValue<string>(
-                                "Logging:CustomLogger:ClientAccessLogPath"
-                            ) ?? "logs/client-access-.txt",
-                            rollingInterval: RollingInterval.Day,
-                            retainedFileCountLimit: context.Configuration.GetValue<int>(
-                                "Logging:CustomLogger:ClientAccessLogCount",
-                                DEFAULT_LOG_COUNT
-                            ),
-                            hooks: new CsvHeaderHooks(),
-                        )
-                )
+                .WriteTo.Console();
+
+            TryConfigureGeneralLogSink(loggerConfiguration, DEFAULT_LOG_COUNT);
+            TryConfigureClientAccessSink(
+                loggerConfiguration,
+                context.Configuration,
+                DEFAULT_LOG_COUNT
+            );
+        }
     );
 
     builder.Host.UseWindowsService();
@@ -123,5 +93,92 @@ catch (Exception ex)
 }
 finally
 {
-    Log.CloseAndFlush();
+    try
+    {
+        Log.CloseAndFlush();
+    }
+    catch (Exception flushException)
+    {
+        Console.Error.WriteLine($"Serilog failed to flush: {flushException}");
+    }
+}
+
+Serilog.ILogger CreateBootstrapLogger(int retainedFileCount)
+{
+    var configuration = new LoggerConfiguration().WriteTo.Console();
+
+    TryConfigureBootstrapFileSink(configuration, retainedFileCount);
+
+    return configuration.CreateBootstrapLogger();
+}
+
+void TryConfigureBootstrapFileSink(LoggerConfiguration configuration, int retainedFileCount)
+{
+    try
+    {
+        configuration.WriteTo.File(
+            "logs/log-.txt",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: retainedFileCount
+        );
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Serilog bootstrap file sink disabled: {ex}");
+    }
+}
+
+void TryConfigureGeneralLogSink(LoggerConfiguration configuration, int retainedFileCount)
+{
+    try
+    {
+        configuration.WriteTo.Logger(lc =>
+            lc.Filter.ByExcluding(e =>
+                    e.Properties.ContainsKey("LogType")
+                    && e.Properties["LogType"] is ScalarValue sv
+                    && sv.Value as string == "ClientAccess"
+                )
+                .WriteTo.File(
+                    "logs/backend-log-.txt",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: retainedFileCount
+                )
+        );
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Serilog backend log sink disabled: {ex}");
+    }
+}
+
+void TryConfigureClientAccessSink(
+    LoggerConfiguration configuration,
+    IConfiguration appConfiguration,
+    int retainedFileCount
+)
+{
+    try
+    {
+        configuration.WriteTo.Logger(lc =>
+            lc.Filter.ByIncludingOnly(e =>
+                    e.Properties.ContainsKey("LogType")
+                    && e.Properties["LogType"] is ScalarValue sv
+                    && sv.Value as string == "ClientAccess"
+                )
+                .WriteTo.File(
+                    appConfiguration.GetValue<string>("Logging:CustomLogger:ClientAccessLogPath")
+                        ?? "logs/client-access-.txt",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: appConfiguration.GetValue(
+                        "Logging:CustomLogger:ClientAccessLogCount",
+                        retainedFileCount
+                    ),
+                    hooks: new CsvHeaderHooks()
+                )
+        );
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Serilog client access sink disabled: {ex}");
+    }
 }

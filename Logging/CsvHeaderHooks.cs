@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using Serilog.Sinks.File;
@@ -19,17 +20,24 @@ namespace HandyBackend.Logging
         /// <returns>The stream Serilog should write to.</returns>
         public override Stream OnFileOpened(string path, Stream underlyingStream, Encoding encoding)
         {
-            // If the file is newly created (i.e., empty), write the CSV header.
-            if (underlyingStream.Length == 0)
+            try
             {
-                // Use a StreamWriter to write the header, ensuring we use the correct encoding
-                // and leave the underlying stream open for Serilog to write to.
-                using (
-                    var writer = new StreamWriter(underlyingStream, encoding, 1024, leaveOpen: true)
-                )
+                // If the file is newly created (i.e., empty), write the CSV header.
+                if (underlyingStream.Length == 0)
                 {
-                    writer.WriteLine("日時, 商品ID, 数量, 個体識別番号, メッセージ");
+                    // Use a StreamWriter to write the header, ensuring we use the correct encoding
+                    // and leave the underlying stream open for Serilog to write to.
+                    using (
+                        var writer = new StreamWriter(underlyingStream, encoding, 1024, leaveOpen: true)
+                    )
+                    {
+                        writer.WriteLine("日時, 商品ID, 数量, 個体識別番号, メッセージ");
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"CsvHeaderHooks skipped header for '{path}': {ex}");
             }
 
             // Return the original stream for Serilog to use.
