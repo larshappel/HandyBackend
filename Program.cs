@@ -18,7 +18,6 @@ Log.Logger = new LoggerConfiguration()
         "logs/log-.txt",
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: DEFAULT_LOG_COUNT,
-        shared: true
     )
     .CreateBootstrapLogger();
 
@@ -51,7 +50,6 @@ try
                             "logs/backend-log-.txt",
                             rollingInterval: RollingInterval.Day,
                             retainedFileCountLimit: DEFAULT_LOG_COUNT,
-                            shared: true
                         )
                 )
                 // Sink for client-accessible logs
@@ -71,7 +69,6 @@ try
                                 DEFAULT_LOG_COUNT
                             ),
                             hooks: new CsvHeaderHooks(),
-                            shared: true
                         )
                 )
     );
