@@ -109,25 +109,27 @@ public class ProductsController : ControllerBase
             amountDouble = amountDouble / 1000d;
         }
 
-        // Update the product's amount (add the amount to the existing stock)
-        product.Amount += amountDouble;
-
-        // Count the times this label has been scanned.
-        product.LabelCollectCount++;
-
-        if (long.TryParse(deliveryRecord.individual_id, out long individualId))
+        long? individualId = null;
+        if (long.TryParse(deliveryRecord.individual_id, out long parsedIndividualId))
         {
-            product.IdentificationNumber = individualId;
+            individualId = parsedIndividualId;
         }
         else
         {
             _logger.LogInformation(logStringBase + ", no valid individual ID");
         }
-        product.UpdateDate = DateTime.UtcNow.Date;
-        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
-        // Save the changes
-        var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
+        Product? updatedProduct;
+        try
+        {
+            updatedProduct = await _productService.ApplyDeliveryAsync(product.Id, amountDouble, individualId);
+        }
+        catch (InvalidOperationException)
+        {
+            LogClientAccess(logStringBase + "Excess Label Scan");
+            return Ok(new { message = "It's already scanned!" });
+        }
+
         if (updatedProduct == null)
         {
             return Ok(new { message = "The product no longer exists." });

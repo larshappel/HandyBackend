@@ -103,6 +103,7 @@ finally
     }
 }
 
+// Default logger
 Serilog.ILogger CreateBootstrapLogger(int retainedFileCount)
 {
     var configuration = new LoggerConfiguration().WriteTo.Console();

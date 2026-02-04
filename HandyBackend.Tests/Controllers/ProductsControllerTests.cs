@@ -24,10 +24,25 @@ public class ProductsControllerTests
         harness.ProductServiceMock
             .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
             .ReturnsAsync(existingProduct);
-        // Subsequent update returns the mutated product so the controller can echo it back.
+
+        var updatedProduct = harness.BuildDefaultProduct(p =>
+        {
+            p.Amount = 11.25d;
+            p.LabelCollectCount = 1;
+            p.IdentificationNumber = 1234567890;
+            p.UpdateDate = DateTime.UtcNow.Date;
+            p.UpdateTime = DateTime.UtcNow.TimeOfDay;
+        });
+
         harness.ProductServiceMock
-            .Setup(service => service.UpdateProductAsync(existingProduct.Id, It.IsAny<Product>()))
-            .ReturnsAsync((int _, Product updated) => updated);
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    1234567890L
+                )
+            )
+            .ReturnsAsync(updatedProduct);
 
         // Act: invoke the delivery endpoint.
         var result = await harness.Controller.ProcessDelivery(request);
@@ -46,15 +61,10 @@ public class ProductsControllerTests
             Times.Once
         );
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(
+            service => service.ApplyDeliveryAsync(
                 existingProduct.Id,
-                It.Is<Product>(p =>
-                    Math.Abs(p.Amount - 11.25d) < 0.0001
-                    && p.LabelCollectCount == 1
-                    && p.IdentificationNumber == 1234567890
-                    && p.UpdateDate.HasValue
-                    && p.UpdateTime.HasValue
-                )
+                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                1234567890L
             ),
             Times.Once
         );
@@ -72,9 +82,23 @@ public class ProductsControllerTests
         harness.ProductServiceMock
             .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
             .ReturnsAsync(existingProduct);
+
+        var updatedProduct = harness.BuildDefaultProduct(p =>
+        {
+            p.Amount = 10.75d;
+            p.LabelCollectCount = 1;
+            p.IdentificationNumber = 1234567890;
+        });
+
         harness.ProductServiceMock
-            .Setup(service => service.UpdateProductAsync(existingProduct.Id, It.IsAny<Product>()))
-            .ReturnsAsync((int _, Product updated) => updated);
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 0.75d) < 0.0001),
+                    1234567890L
+                )
+            )
+            .ReturnsAsync(updatedProduct);
 
         var result = await harness.Controller.ProcessDelivery(request);
 
@@ -86,12 +110,10 @@ public class ProductsControllerTests
         Assert.Equal(10.75d, responseBody.newAmount, precision: 3);
 
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(
+            service => service.ApplyDeliveryAsync(
                 existingProduct.Id,
-                It.Is<Product>(p =>
-                    Math.Abs(p.Amount - 10.75d) < 0.0001
-                    && p.LabelCollectCount == 1
-                )
+                It.Is<double>(delta => Math.Abs(delta - 0.75d) < 0.0001),
+                1234567890L
             ),
             Times.Once
         );
@@ -117,7 +139,7 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(It.IsAny<int>(), It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -142,7 +164,7 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(It.IsAny<int>(), It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -168,7 +190,7 @@ public class ProductsControllerTests
         Assert.Equal("Product '123456' not found", error.message);
 
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(It.IsAny<int>(), It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -193,7 +215,7 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(It.IsAny<int>(), It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -226,7 +248,7 @@ public class ProductsControllerTests
         Assert.Equal(5, existingProduct.LabelCollectCount);
 
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(It.IsAny<int>(), It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -243,9 +265,23 @@ public class ProductsControllerTests
         harness.ProductServiceMock
             .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
             .ReturnsAsync(existingProduct);
+
+        var updatedProduct = harness.BuildDefaultProduct(p =>
+        {
+            p.Amount = 11.25d;
+            p.LabelCollectCount = 1;
+            p.IdentificationNumber = null;
+        });
+
         harness.ProductServiceMock
-            .Setup(service => service.UpdateProductAsync(existingProduct.Id, It.IsAny<Product>()))
-            .ReturnsAsync((int _, Product updated) => updated);
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    It.Is<long?>(id => id == null)
+                )
+            )
+            .ReturnsAsync(updatedProduct);
 
         var result = await harness.Controller.ProcessDelivery(request);
 
@@ -257,13 +293,10 @@ public class ProductsControllerTests
         Assert.Equal(11.25d, responseBody.newAmount, precision: 3);
 
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(
+            service => service.ApplyDeliveryAsync(
                 existingProduct.Id,
-                It.Is<Product>(p =>
-                    p.IdentificationNumber == null
-                    && p.LabelCollectCount == 1
-                    && Math.Abs(p.Amount - 11.25d) < 0.0001
-                )
+                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                It.Is<long?>(id => id == null)
             ),
             Times.Once
         );
@@ -282,7 +315,13 @@ public class ProductsControllerTests
             .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
             .ReturnsAsync(existingProduct);
         harness.ProductServiceMock
-            .Setup(service => service.UpdateProductAsync(existingProduct.Id, It.IsAny<Product>()))
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.IsAny<double>(),
+                    It.IsAny<long?>()
+                )
+            )
             .ReturnsAsync((Product?)null);
 
         var result = await harness.Controller.ProcessDelivery(request);
@@ -293,7 +332,11 @@ public class ProductsControllerTests
         Assert.Equal("The product no longer exists.", messageOnly.message);
 
         harness.ProductServiceMock.Verify(
-            service => service.UpdateProductAsync(existingProduct.Id, It.IsAny<Product>()),
+            service => service.ApplyDeliveryAsync(
+                existingProduct.Id,
+                It.IsAny<double>(),
+                It.IsAny<long?>()
+            ),
             Times.Once
         );
     }

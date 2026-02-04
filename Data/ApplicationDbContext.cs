@@ -10,7 +10,7 @@ public class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options) { }
 
-    public DbSet<Product>? Products { get; set; } // It's nullable? Creates a mapping between the Product class and the products table in the database.
+    public DbSet<Product> Products { get; set; } = null!; // It's nullable? Creates a mapping between the Product class and the products table in the database.
 
     // This is similar to a migration.
     // The ModelBuilder is used to configure the entities and the relationships between them.
