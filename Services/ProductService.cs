@@ -87,7 +87,7 @@ public class ProductService : IProductService
 
         var product = await _context
             .Products.FromSqlInterpolated(
-                $"SELECT * FROM orderdetails WHERE Id = {OrderDetailID} FOR UPDATE"
+                $"SELECT * FROM orderdetails WHERE OrderDetailId = {productId} FOR UPDATE"
             )
             .AsTracking()
             .SingleOrDefaultAsync();
