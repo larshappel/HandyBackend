@@ -191,6 +191,16 @@ Assert: HTTP 400 with `{ message: "Invalid amount format." }`; confirm neither
 `GetProductByOrderDetailIdAsync` nor `ApplyDeliveryAsync` run and that the
 client-access log records "Invalid amount format".
 
+### TC14 Negative Amount Rejected
+
+Arrange: Use the shared harness defaults (culture set to invariant for safety).
+
+Act: POST the TC1 payload with `amount: "-1.25"`.
+
+Assert: HTTP 400 with `{ message: "Invalid amount format." }`; verify neither
+`GetProductByOrderDetailIdAsync` nor `ApplyDeliveryAsync` run and that the
+client-access log records "Invalid amount format".
+
 ## Open Questions / Further considerations
 
 - Should delivery amounts containing commas ever be accepted? TC13 currently

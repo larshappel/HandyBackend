@@ -75,7 +75,8 @@ public class ProductsController : ControllerBase
         }
 
         // Reject comma-separated decimals up front to avoid localisation surprises
-        if (deliveryRecord.amount.Contains(','))
+        // also reject negative signs to prevent negative deliveries
+        if (deliveryRecord.amount.Contains(',') || deliveryRecord.amount.Contains('-'))
         {
             LogClientAccess(logStringBase + "Invalid amount format");
             return BadRequest(new { message = "Invalid amount format." });
@@ -130,7 +131,11 @@ public class ProductsController : ControllerBase
         Product? updatedProduct;
         try
         {
-            updatedProduct = await _productService.ApplyDeliveryAsync(product.Id, amountDouble, individualId);
+            updatedProduct = await _productService.ApplyDeliveryAsync(
+                product.Id,
+                amountDouble,
+                individualId
+            );
         }
         catch (InvalidOperationException)
         {
@@ -143,7 +148,10 @@ public class ProductsController : ControllerBase
             return Ok(new { message = "The product no longer exists." });
         }
 
-        var formattedAmount = updatedProduct?.Amount.ToString("0.###", CultureInfo.InvariantCulture);
+        var formattedAmount = updatedProduct?.Amount.ToString(
+            "0.###",
+            CultureInfo.InvariantCulture
+        );
         LogClientAccess(logStringBase + "Amount updated: " + formattedAmount);
 
         return Ok(

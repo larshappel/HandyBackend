@@ -173,6 +173,14 @@ device_id: "1"
 
 確認: HTTP 400 と `{ message: "Invalid amount format." }` を返し、`GetProductByOrderDetailIdAsync` と `ApplyDeliveryAsync` が呼び出されないこと、さらにクライアントアクセスログに "Invalid amount format" が記録されることを検証する。
 
+### TC14 マイナス数量の拒否
+
+準備: 共通ハーネス設定を用い、カルチャは安全のため `CultureInfo.InvariantCulture` に設定する。
+
+操作: TC1 と同じペイロードで `amount: "-1.25"` を POST する。
+
+確認: HTTP 400 と `{ message: "Invalid amount format." }` を返し、`GetProductByOrderDetailIdAsync` と `ApplyDeliveryAsync` が呼び出されず、クライアントアクセスログに "Invalid amount format" が記録されることを検証する。
+
 ## 未解決事項 / 追加検討点
 
 - カンマを含む数量表記を将来的に許容する必要があるか。現状は TC13 で拒否を仕様化しているため、ローカライズ要件の変更時に再検討する。
