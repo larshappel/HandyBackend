@@ -75,12 +75,20 @@ public class ProductService : IProductService
     /// <param name="amountDelta">Delta (positive or negative) to add to the product amount.</param>
     /// <param name="identificationNumber">Optional individual identifier captured from the delivery record.</param>
     /// <returns>The updated product, or null if it no longer exists.</returns>
-    public async Task<Product?> ApplyDeliveryAsync(int productId, double amountDelta, long? identificationNumber)
+    public async Task<Product?> ApplyDeliveryAsync(
+        int productId,
+        double amountDelta,
+        long? identificationNumber
+    )
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        await using var transaction = await _context.Database.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted
+        );
 
-        var product = await _context.Products
-            .FromSqlInterpolated($"SELECT * FROM Products WHERE Id = {productId} FOR UPDATE")
+        var product = await _context
+            .Products.FromSqlInterpolated(
+                $"SELECT * FROM orderdetails WHERE Id = {OrderDetailID} FOR UPDATE"
+            )
             .AsTracking()
             .SingleOrDefaultAsync();
 
