@@ -153,6 +153,15 @@ Act: POST a valid delivery payload.
 Assert: HTTP 200 with payload `{ message: "It's already scanned!" }`; verify `ApplyDeliveryAsync` was invoked exactly once and no retry or alternative update path is taken.
 
 
+### TC11 Individual Id Overflow
+
+Arrange: The service returns the seeded product and `ApplyDeliveryAsync` completes successfully.
+
+Act: POST a valid delivery payload except `individual_id` is a numeric string longer than `long.MaxValue` (for example, twenty-five nines).
+
+Assert: HTTP 200 success payload; confirm the controller forwards `null` for `identificationNumber` despite the numeric-looking input and the service receives the expected amount delta.
+
+
 ## Open Questions / Further considerations
 
 - Should delivery amounts containing commas be accepted? Under default culture

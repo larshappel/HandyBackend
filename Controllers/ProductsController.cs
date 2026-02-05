@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using HandyBackend.DTOs;
 using HandyBackend.Models;
 using HandyBackend.Models.DTOs;
@@ -135,7 +136,8 @@ public class ProductsController : ControllerBase
             return Ok(new { message = "The product no longer exists." });
         }
 
-        LogClientAccess(logStringBase + "Amount updated: " + updatedProduct?.Amount);
+        var formattedAmount = updatedProduct?.Amount.ToString("0.###", CultureInfo.InvariantCulture);
+        LogClientAccess(logStringBase + "Amount updated: " + formattedAmount);
 
         return Ok(
             new

@@ -303,6 +303,55 @@ public class ProductsControllerTests
         );
     }
 
+    // TC11 reference: docs/test_specifications_EN.md –
+    // Numeric-looking individual IDs beyond long.MaxValue should be treated as missing.
+    [Fact]
+    public async Task ProcessDelivery_WithOverflowIndividualId_ForwardsNullToService()
+    {
+        var harness = new ProductsControllerTestHarness();
+        var existingProduct = harness.BuildDefaultProduct();
+        var request = harness.BuildDeliveryRequest(dto => dto.individual_id = new string('9', 25));
+
+        harness.ProductServiceMock
+            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+            .ReturnsAsync(existingProduct);
+
+        var updatedProduct = harness.BuildDefaultProduct(p =>
+        {
+            p.Amount = 11.25d;
+            p.LabelCollectCount = 1;
+            p.IdentificationNumber = null;
+        });
+
+        harness.ProductServiceMock
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    It.Is<long?>(id => id == null)
+                )
+            )
+            .ReturnsAsync(updatedProduct);
+
+        var result = await harness.Controller.ProcessDelivery(request);
+
+        var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
+        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(okResult.Value!);
+
+        Assert.Equal("Delivery processed successfully", responseBody.message);
+        Assert.Equal(existingProduct.OrderDetailId, responseBody.productOrderDetailId);
+        Assert.Equal(11.25d, responseBody.newAmount, precision: 3);
+
+        harness.ProductServiceMock.Verify(
+            service => service.ApplyDeliveryAsync(
+                existingProduct.Id,
+                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                It.Is<long?>(id => id == null)
+            ),
+            Times.Once
+        );
+    }
+
     // TC9 reference: docs/test_specifications_EN.md –
     // Service returning null should be handled gracefully with an informational response.
     [Fact]

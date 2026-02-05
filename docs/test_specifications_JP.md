@@ -150,6 +150,15 @@ device_id: "1"
 確認: HTTP 200 と `{ message: "It's already scanned!" }` のペイロードを返し、`ApplyDeliveryAsync` が 1 回だけ呼ばれ、再試行や代替の更新処理が行われないことを検証する。
 
 
+### TC11 個人 ID が long の上限を超過
+
+準備: サービスはシード済みプロダクトを返し、`ApplyDeliveryAsync` は正常に完了する。
+
+操作: 妥当な納品ペイロードを POST するが、`individual_id` に 25 桁の 9 など `long.MaxValue` を超える数値文字列を指定する。
+
+確認: HTTP 200 の成功レスポンスを返し、見た目が数値でもコントローラが `identificationNumber` に `null` を渡すこと、およびサービスが期待どおりの数量差分を受け取ることを検証する。
+
+
 ## 未解決事項 / 追加検討点
 
 - カンマを含む数量表記を受け入れるべきか。既定カルチャでは `double.TryParse`
