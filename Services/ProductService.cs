@@ -81,42 +81,41 @@ public class ProductService : IProductService
         long? identificationNumber
     )
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted
-        );
+        await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        var product = await _context
-            .Products.FromSqlInterpolated(
-                $"SELECT * FROM orderdetails WHERE OrderDetailID = {productId} FOR UPDATE"
-            )
-            .AsTracking()
-            .SingleOrDefaultAsync();
+        var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+            UPDATE orderdetails
+            SET SalesQuantity = SalesQuantity + {amountDelta},
+                LabelCollectCount = LabelCollectCount + 1,
+                IdentificationNumber = {identificationNumber},
+                UpdateDate = CURRENT_DATE(),
+                UpdateTime = CURRENT_TIME()
+            WHERE OrderDetailID = {productId}
+              AND LabelCollectCount < LabelIssueCount;
+        ");
 
-        if (product == null)
+        if (rowsAffected == 0)
         {
+            // Determine whether the row is missing or the label limit was reached.
+            var current = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId);
             await transaction.RollbackAsync();
-            return null;
+
+            if (current == null)
+            {
+                return null;
+            }
+
+            if (current.LabelCollectCount >= current.LabelIssueCount)
+            {
+                throw new InvalidOperationException("Label scan limit reached.");
+            }
+
+            throw new InvalidOperationException("Delivery update failed unexpectedly.");
         }
 
-        if (product.LabelCollectCount >= product.LabelIssueCount)
-        {
-            await transaction.RollbackAsync();
-            throw new InvalidOperationException("Label scan limit reached.");
-        }
-
-        product.Amount += amountDelta;
-        product.LabelCollectCount++;
-
-        if (identificationNumber.HasValue)
-        {
-            product.IdentificationNumber = identificationNumber;
-        }
-
-        product.UpdateDate = DateTime.UtcNow.Date;
-        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
-
-        await _context.SaveChangesAsync();
         await transaction.CommitAsync();
-        return product;
+
+        var updatedProduct = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
+        return updatedProduct;
     }
 }
