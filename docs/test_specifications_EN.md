@@ -144,14 +144,66 @@ Act: POST with valid payload.
 Assert: HTTP 200 with payload `{ message: "The product no longer exists." }`.
 No further updates should be attempted.
 
+### TC10 Service Throws Label Limit
+
+Arrange: `GetProductByOrderDetailIdAsync` returns the seeded product while
+`ApplyDeliveryAsync` throws `InvalidOperationException` to simulate the scan
+limit being enforced inside the service.
+
+Act: POST a valid delivery payload.
+
+Assert: HTTP 200 with payload `{ message: "It's already scanned!" }`; verify
+`ApplyDeliveryAsync` was invoked exactly once and no retry or alternative
+update path is taken.
+
+### TC11 Individual Id Overflow
+
+Arrange: The service returns the seeded product and `ApplyDeliveryAsync`
+completes successfully.
+
+Act: POST a valid delivery payload except `individual_id` is a numeric string
+longer than `long.MaxValue` (for example, twenty-five nines).
+
+Assert: HTTP 200 success payload; confirm the controller forwards `null` for
+`identificationNumber` despite the numeric-looking input and the service
+receives the expected amount delta.
+
+### TC12 Client Access Logging
+
+Arrange: Seed the service to return the standard product and capture logs
+through a test logger that records scope information.
+
+Act: POST a valid delivery payload that results in a successful update.
+
+Assert: Two informative log entries with identical messages exist—one emitted
+without a scope and another emitted within a scope containing `LogType ==
+"ClientAccess"`; ensure no additional entries with that message are produced.
+
+### TC13 Comma Amount Rejected
+
+Arrange: Use the shared harness defaults and let the test logger capture
+messages.
+
+Act: POST the TC1 payload but supply `amount: "1,25"` (comma decimal) after
+forcing `CultureInfo.InvariantCulture` for the controller invocation.
+
+Assert: HTTP 400 with `{ message: "Invalid amount format." }`; confirm neither
+`GetProductByOrderDetailIdAsync` nor `ApplyDeliveryAsync` run and that the
+client-access log records "Invalid amount format".
+
+### TC14 Negative Amount Rejected
+
+Arrange: Use the shared harness defaults (culture set to invariant for safety).
+
+Act: POST the TC1 payload with `amount: "-1.25"`.
+
+Assert: HTTP 400 with `{ message: "Invalid amount format." }`; verify neither
+`GetProductByOrderDetailIdAsync` nor `ApplyDeliveryAsync` run and that the
+client-access log records "Invalid amount format".
+
 ## Open Questions / Further considerations
 
-- Should delivery amounts containing commas be accepted? Under default culture
-`double.TryParse` rejects them before the comma check, so clarify expected
-localisation rules. -> Rejecting them is correct, this should trigger the same
-error response as TC6 (Invalid amount format). Since the comma vs dot is more
-ambiguous, adding a specific unit test to address this might be good.
-
-- Confirm whether client-facing logs need verification in unit tests or can be
-covered by integration/logging tests. -> Should be verified somehow that a log
-file is written, as the logging is part of the requirement definition.
+- Should delivery amounts containing commas ever be accepted? TC13 currently
+codifies rejection; revisit if localisation requirements change.
+- Confirm whether client-facing logs need verification in integration tests or
+if unit coverage (TC12/TC13) is sufficient to meet the logging requirement.

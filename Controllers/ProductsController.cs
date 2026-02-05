@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using HandyBackend.DTOs;
 using HandyBackend.Models;
 using HandyBackend.Models.DTOs;
@@ -73,6 +74,14 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = "Invalid Product ID format." });
         }
 
+        // Reject comma-separated decimals up front to avoid localisation surprises
+        // also reject negative signs to prevent negative deliveries
+        if (deliveryRecord.amount.Contains(',') || deliveryRecord.amount.Contains('-'))
+        {
+            LogClientAccess(logStringBase + "Invalid amount format");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
         // Early return if amount is formatted incorrectly (needs to represent a double)
         if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
         {
@@ -122,7 +131,11 @@ public class ProductsController : ControllerBase
         Product? updatedProduct;
         try
         {
-            updatedProduct = await _productService.ApplyDeliveryAsync(product.Id, amountDouble, individualId);
+            updatedProduct = await _productService.ApplyDeliveryAsync(
+                product.Id,
+                amountDouble,
+                individualId
+            );
         }
         catch (InvalidOperationException)
         {
@@ -135,7 +148,11 @@ public class ProductsController : ControllerBase
             return Ok(new { message = "The product no longer exists." });
         }
 
-        LogClientAccess(logStringBase + "Amount updated: " + updatedProduct?.Amount);
+        var formattedAmount = updatedProduct?.Amount.ToString(
+            "0.###",
+            CultureInfo.InvariantCulture
+        );
+        LogClientAccess(logStringBase + "Amount updated: " + formattedAmount);
 
         return Ok(
             new
