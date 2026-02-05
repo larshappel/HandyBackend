@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using HandyBackend.Controllers;
 using HandyBackend.Models;
 using HandyBackend.Tests.Helpers;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
@@ -9,6 +13,7 @@ namespace HandyBackend.Tests.Controllers;
 public class ProductsControllerTests
 {
     private record DeliveryResponse(string message, int productOrderDetailId, double newAmount);
+
     private record ErrorResponse(string message);
 
     // TC1 reference: docs/test_specifications_EN.md –
@@ -22,8 +27,10 @@ public class ProductsControllerTests
         var request = harness.BuildDeliveryRequest();
 
         // Mock service returns the seeded product when the controller looks it up by order detail id.
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
 
         var updatedProduct = harness.BuildDefaultProduct(p =>
@@ -35,8 +42,8 @@ public class ProductsControllerTests
             p.UpdateTime = DateTime.UtcNow.TimeOfDay;
         });
 
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
@@ -50,7 +57,9 @@ public class ProductsControllerTests
 
         // Assert: verify HTTP 200 and inspect the typed projection of the anonymous response.
         var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
-        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(okResult.Value!);
+        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(
+            okResult.Value!
+        );
 
         Assert.Equal("Delivery processed successfully", responseBody.message);
         Assert.Equal(existingProduct.OrderDetailId, responseBody.productOrderDetailId);
@@ -62,13 +71,23 @@ public class ProductsControllerTests
             Times.Once
         );
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
-                1234567890L
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    1234567890L
+                ),
             Times.Once
         );
+
+        var entries = harness.Logger.Entries;
+        var expectedLogMessage = ",9000123456, 1.25, 1234567890, 1, Amount updated: 11.25";
+        var amountLogs = entries.Where(e => e.Message == expectedLogMessage).ToList();
+
+        Assert.Equal(2, amountLogs.Count);
+        Assert.All(amountLogs, e => Assert.Equal(LogLevel.Information, e.Level));
+        Assert.Single(amountLogs.Where(HasClientAccessScope));
+        Assert.Single(amountLogs.Where(e => !HasClientAccessScope(e)));
     }
 
     // TC2 reference: docs/test_specifications_EN.md –
@@ -80,8 +99,10 @@ public class ProductsControllerTests
         var existingProduct = harness.BuildDefaultProduct();
         var request = harness.BuildDeliveryRequest(dto => dto.amount = "750");
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
 
         var updatedProduct = harness.BuildDefaultProduct(p =>
@@ -91,8 +112,8 @@ public class ProductsControllerTests
             p.IdentificationNumber = 1234567890;
         });
 
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.Is<double>(delta => Math.Abs(delta - 0.75d) < 0.0001),
@@ -104,18 +125,21 @@ public class ProductsControllerTests
         var result = await harness.Controller.ProcessDelivery(request);
 
         var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
-        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(okResult.Value!);
+        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(
+            okResult.Value!
+        );
 
         Assert.Equal("Delivery processed successfully", responseBody.message);
         Assert.Equal(existingProduct.OrderDetailId, responseBody.productOrderDetailId);
         Assert.Equal(10.75d, responseBody.newAmount, precision: 3);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.Is<double>(delta => Math.Abs(delta - 0.75d) < 0.0001),
-                1234567890L
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 0.75d) < 0.0001),
+                    1234567890L
+                ),
             Times.Once
         );
     }
@@ -140,9 +164,20 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+            service =>
+                service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
+
+        var entries = harness.Logger.Entries;
+        var invalidLogs = entries
+            .Where(e => e.Message.EndsWith("Invalid product ID", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(2, invalidLogs.Count);
+        Assert.All(invalidLogs, e => Assert.Equal(LogLevel.Information, e.Level));
+        Assert.Single(invalidLogs.Where(HasClientAccessScope));
+        Assert.Single(invalidLogs.Where(e => !HasClientAccessScope(e)));
     }
 
     // TC4 reference: docs/test_specifications_EN.md –
@@ -165,7 +200,8 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+            service =>
+                service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -179,8 +215,10 @@ public class ProductsControllerTests
         var request = harness.BuildDeliveryRequest();
         var trimmedProductId = 123456;
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(trimmedProductId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(trimmedProductId)
+            )
             .ReturnsAsync((Product?)null);
 
         var result = await harness.Controller.ProcessDelivery(request);
@@ -191,7 +229,8 @@ public class ProductsControllerTests
         Assert.Equal("Product '123456' not found", error.message);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+            service =>
+                service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -216,7 +255,8 @@ public class ProductsControllerTests
             Times.Never
         );
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+            service =>
+                service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -235,8 +275,10 @@ public class ProductsControllerTests
         var request = harness.BuildDeliveryRequest();
         var trimmedProductId = 123456;
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(trimmedProductId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(trimmedProductId)
+            )
             .ReturnsAsync(existingProduct);
 
         var result = await harness.Controller.ProcessDelivery(request);
@@ -249,7 +291,8 @@ public class ProductsControllerTests
         Assert.Equal(5, existingProduct.LabelCollectCount);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+            service =>
+                service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
     }
@@ -263,8 +306,10 @@ public class ProductsControllerTests
         var existingProduct = harness.BuildDefaultProduct();
         var request = harness.BuildDeliveryRequest(dto => dto.individual_id = "abc");
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
 
         var updatedProduct = harness.BuildDefaultProduct(p =>
@@ -274,8 +319,8 @@ public class ProductsControllerTests
             p.IdentificationNumber = null;
         });
 
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
@@ -287,18 +332,21 @@ public class ProductsControllerTests
         var result = await harness.Controller.ProcessDelivery(request);
 
         var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
-        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(okResult.Value!);
+        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(
+            okResult.Value!
+        );
 
         Assert.Equal("Delivery processed successfully", responseBody.message);
         Assert.Equal(existingProduct.OrderDetailId, responseBody.productOrderDetailId);
         Assert.Equal(11.25d, responseBody.newAmount, precision: 3);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
-                It.Is<long?>(id => id == null)
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    It.Is<long?>(id => id == null)
+                ),
             Times.Once
         );
     }
@@ -312,8 +360,10 @@ public class ProductsControllerTests
         var existingProduct = harness.BuildDefaultProduct();
         var request = harness.BuildDeliveryRequest(dto => dto.individual_id = new string('9', 25));
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
 
         var updatedProduct = harness.BuildDefaultProduct(p =>
@@ -323,8 +373,8 @@ public class ProductsControllerTests
             p.IdentificationNumber = null;
         });
 
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
@@ -336,18 +386,21 @@ public class ProductsControllerTests
         var result = await harness.Controller.ProcessDelivery(request);
 
         var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
-        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(okResult.Value!);
+        var responseBody = ControllerResponseReader.ReadAnonymous<DeliveryResponse>(
+            okResult.Value!
+        );
 
         Assert.Equal("Delivery processed successfully", responseBody.message);
         Assert.Equal(existingProduct.OrderDetailId, responseBody.productOrderDetailId);
         Assert.Equal(11.25d, responseBody.newAmount, precision: 3);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
-                It.Is<long?>(id => id == null)
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    It.Is<long?>(id => id == null)
+                ),
             Times.Once
         );
     }
@@ -361,11 +414,13 @@ public class ProductsControllerTests
         var existingProduct = harness.BuildDefaultProduct();
         var request = harness.BuildDeliveryRequest();
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.IsAny<double>(),
@@ -382,11 +437,12 @@ public class ProductsControllerTests
         Assert.Equal("The product no longer exists.", messageOnly.message);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.IsAny<double>(),
-                It.IsAny<long?>()
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.IsAny<double>(),
+                    It.IsAny<long?>()
+                ),
             Times.Once
         );
     }
@@ -400,11 +456,13 @@ public class ProductsControllerTests
         var existingProduct = harness.BuildDefaultProduct();
         var request = harness.BuildDeliveryRequest();
 
-        harness.ProductServiceMock
-            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
             .ReturnsAsync(existingProduct);
-        harness.ProductServiceMock
-            .Setup(service =>
+        harness
+            .ProductServiceMock.Setup(service =>
                 service.ApplyDeliveryAsync(
                     existingProduct.Id,
                     It.IsAny<double>(),
@@ -421,12 +479,86 @@ public class ProductsControllerTests
         Assert.Equal("It's already scanned!", messageOnly.message);
 
         harness.ProductServiceMock.Verify(
-            service => service.ApplyDeliveryAsync(
-                existingProduct.Id,
-                It.IsAny<double>(),
-                It.IsAny<long?>()
-            ),
+            service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.IsAny<double>(),
+                    It.IsAny<long?>()
+                ),
             Times.Once
         );
+    }
+
+    // TC12 reference: docs/test_specifications_EN.md –
+    // Successful deliveries must emit both unscoped and client-access scoped logs.
+    [Fact]
+    public async Task ProcessDelivery_WithValidPayload_EmitsClientAccessLogs()
+    {
+        var harness = new ProductsControllerTestHarness();
+        var existingProduct = harness.BuildDefaultProduct();
+        var request = harness.BuildDeliveryRequest();
+
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId)
+            )
+            .ReturnsAsync(existingProduct);
+
+        var updatedProduct = harness.BuildDefaultProduct(p =>
+        {
+            p.Amount = 11.25d;
+            p.LabelCollectCount = 1;
+            p.IdentificationNumber = 1234567890;
+        });
+
+        harness
+            .ProductServiceMock.Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.Is<double>(delta => Math.Abs(delta - 1.25d) < 0.0001),
+                    1234567890L
+                )
+            )
+            .ReturnsAsync(updatedProduct);
+
+        var result = await harness.Controller.ProcessDelivery(request);
+
+        Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
+
+        var expectedMessage = ",9000123456, 1.25, 1234567890, 1, Amount updated: 11.25";
+        var matchingEntries = harness.Logger.Entries
+            .Where(entry => entry.Message == expectedMessage)
+            .ToList();
+
+        Assert.Equal(2, matchingEntries.Count);
+        Assert.All(matchingEntries, entry => Assert.Equal(LogLevel.Information, entry.Level));
+
+        Assert.Single(matchingEntries.Where(entry => HasClientAccessScope(entry)));
+        Assert.Single(matchingEntries.Where(entry => !HasClientAccessScope(entry)));
+    }
+
+    private static bool HasClientAccessScope(TestLogger<ProductsController>.LogEntry entry)
+    {
+        foreach (var scope in entry.Scopes)
+        {
+            if (scope is IEnumerable<KeyValuePair<string, object>> keyValuePairs)
+            {
+                if (
+                    keyValuePairs.Any(pair =>
+                        pair.Key == "LogType"
+                        && string.Equals(
+                            pair.Value?.ToString(),
+                            "ClientAccess",
+                            StringComparison.Ordinal
+                        )
+                    )
+                )
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

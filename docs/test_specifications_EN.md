@@ -146,21 +146,38 @@ No further updates should be attempted.
 
 ### TC10 Service Throws Label Limit
 
-Arrange: `GetProductByOrderDetailIdAsync` returns the seeded product while `ApplyDeliveryAsync` throws `InvalidOperationException` to simulate the scan limit being enforced inside the service.
+Arrange: `GetProductByOrderDetailIdAsync` returns the seeded product while
+`ApplyDeliveryAsync` throws `InvalidOperationException` to simulate the scan
+limit being enforced inside the service.
 
 Act: POST a valid delivery payload.
 
-Assert: HTTP 200 with payload `{ message: "It's already scanned!" }`; verify `ApplyDeliveryAsync` was invoked exactly once and no retry or alternative update path is taken.
-
+Assert: HTTP 200 with payload `{ message: "It's already scanned!" }`; verify
+`ApplyDeliveryAsync` was invoked exactly once and no retry or alternative
+update path is taken.
 
 ### TC11 Individual Id Overflow
 
-Arrange: The service returns the seeded product and `ApplyDeliveryAsync` completes successfully.
+Arrange: The service returns the seeded product and `ApplyDeliveryAsync`
+completes successfully.
 
-Act: POST a valid delivery payload except `individual_id` is a numeric string longer than `long.MaxValue` (for example, twenty-five nines).
+Act: POST a valid delivery payload except `individual_id` is a numeric string
+longer than `long.MaxValue` (for example, twenty-five nines).
 
-Assert: HTTP 200 success payload; confirm the controller forwards `null` for `identificationNumber` despite the numeric-looking input and the service receives the expected amount delta.
+Assert: HTTP 200 success payload; confirm the controller forwards `null` for
+`identificationNumber` despite the numeric-looking input and the service
+receives the expected amount delta.
 
+### TC12 Client Access Logging
+
+Arrange: Seed the service to return the standard product and capture logs
+through a test logger that records scope information.
+
+Act: POST a valid delivery payload that results in a successful update.
+
+Assert: Two informative log entries with identical messages exist—one emitted
+without a scope and another emitted within a scope containing `LogType ==
+"ClientAccess"`; ensure no additional entries with that message are produced.
 
 ## Open Questions / Further considerations
 
