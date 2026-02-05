@@ -1,3 +1,4 @@
+using System;
 using HandyBackend.Models;
 using HandyBackend.Tests.Helpers;
 using Moq;
@@ -330,6 +331,45 @@ public class ProductsControllerTests
         var messageOnly = ControllerResponseReader.ReadAnonymous<ErrorResponse>(okResult.Value!);
 
         Assert.Equal("The product no longer exists.", messageOnly.message);
+
+        harness.ProductServiceMock.Verify(
+            service => service.ApplyDeliveryAsync(
+                existingProduct.Id,
+                It.IsAny<double>(),
+                It.IsAny<long?>()
+            ),
+            Times.Once
+        );
+    }
+
+    // TC10 reference: docs/test_specifications_EN.md –
+    // Service-level label limit exception should surface the friendly "already scanned" response.
+    [Fact]
+    public async Task ProcessDelivery_WhenServiceThrowsInvalidOperation_ReturnsAlreadyScanned()
+    {
+        var harness = new ProductsControllerTestHarness();
+        var existingProduct = harness.BuildDefaultProduct();
+        var request = harness.BuildDeliveryRequest();
+
+        harness.ProductServiceMock
+            .Setup(service => service.GetProductByOrderDetailIdAsync(existingProduct.OrderDetailId))
+            .ReturnsAsync(existingProduct);
+        harness.ProductServiceMock
+            .Setup(service =>
+                service.ApplyDeliveryAsync(
+                    existingProduct.Id,
+                    It.IsAny<double>(),
+                    It.IsAny<long?>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("Label scan limit reached."));
+
+        var result = await harness.Controller.ProcessDelivery(request);
+
+        var okResult = Assert.IsType<Microsoft.AspNetCore.Mvc.OkObjectResult>(result);
+        var messageOnly = ControllerResponseReader.ReadAnonymous<ErrorResponse>(okResult.Value!);
+
+        Assert.Equal("It's already scanned!", messageOnly.message);
 
         harness.ProductServiceMock.Verify(
             service => service.ApplyDeliveryAsync(

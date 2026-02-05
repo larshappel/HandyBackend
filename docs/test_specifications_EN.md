@@ -144,6 +144,15 @@ Act: POST with valid payload.
 Assert: HTTP 200 with payload `{ message: "The product no longer exists." }`.
 No further updates should be attempted.
 
+### TC10 Service Throws Label Limit
+
+Arrange: `GetProductByOrderDetailIdAsync` returns the seeded product while `ApplyDeliveryAsync` throws `InvalidOperationException` to simulate the scan limit being enforced inside the service.
+
+Act: POST a valid delivery payload.
+
+Assert: HTTP 200 with payload `{ message: "It's already scanned!" }`; verify `ApplyDeliveryAsync` was invoked exactly once and no retry or alternative update path is taken.
+
+
 ## Open Questions / Further considerations
 
 - Should delivery amounts containing commas be accepted? Under default culture

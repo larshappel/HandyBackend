@@ -141,6 +141,15 @@ device_id: "1"
 
 確認: HTTP 200 と `{ message: "The product no longer exists." }` のペイロードを返し、それ以上の更新が試行されないこと。
 
+### TC10 サービスがラベル上限例外をスロー
+
+準備: `GetProductByOrderDetailIdAsync` はシードされたプロダクトを返す一方で、`ApplyDeliveryAsync` がラベル上限を強制するために `InvalidOperationException` をスローするようモックする。
+
+操作: 妥当な納品ペイロードを POST する。
+
+確認: HTTP 200 と `{ message: "It's already scanned!" }` のペイロードを返し、`ApplyDeliveryAsync` が 1 回だけ呼ばれ、再試行や代替の更新処理が行われないことを検証する。
+
+
 ## 未解決事項 / 追加検討点
 
 - カンマを含む数量表記を受け入れるべきか。既定カルチャでは `double.TryParse`
