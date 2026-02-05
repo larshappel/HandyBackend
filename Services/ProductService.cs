@@ -87,7 +87,7 @@ public class ProductService : IProductService
             UPDATE orderdetails
             SET SalesQuantity = SalesQuantity + {amountDelta},
                 LabelCollectCount = LabelCollectCount + 1,
-                IdentificationNumber = {identificationNumber},
+                IdentificationNumber = COALESCE({identificationNumber}, IdentificationNumber),
                 UpdateDate = CURRENT_DATE(),
                 UpdateTime = CURRENT_TIME()
             WHERE OrderDetailID = {productId}
