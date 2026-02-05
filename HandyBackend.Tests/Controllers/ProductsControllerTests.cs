@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HandyBackend.Controllers;
 using HandyBackend.Models;
@@ -204,6 +205,56 @@ public class ProductsControllerTests
                 service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
             Times.Never
         );
+    }
+
+    // TC13 reference: docs/test_specifications_EN.md –
+    // Comma decimal amounts must be rejected with the invalid format response.
+    [Fact]
+    public async Task ProcessDelivery_WithCommaAmount_ReturnsBadRequest()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+            var harness = new ProductsControllerTestHarness();
+            var request = harness.BuildDeliveryRequest(dto => dto.amount = "1,25");
+
+            var result = await harness.Controller.ProcessDelivery(request);
+
+            var badRequest = Assert.IsType<Microsoft.AspNetCore.Mvc.BadRequestObjectResult>(result);
+            var error = ControllerResponseReader.ReadAnonymous<ErrorResponse>(badRequest.Value!);
+
+            Assert.Equal("Invalid amount format.", error.message);
+
+            harness.ProductServiceMock.Verify(
+                service => service.GetProductByOrderDetailIdAsync(It.IsAny<int>()),
+                Times.Never
+            );
+            harness.ProductServiceMock.Verify(
+                service =>
+                    service.ApplyDeliveryAsync(It.IsAny<int>(), It.IsAny<double>(), It.IsAny<long?>()),
+                Times.Never
+            );
+
+            var expectedLogMessage = ",9000123456, 1,25, 1234567890, 1, Invalid amount format";
+            var matchingEntries = harness.Logger.Entries
+                .Where(entry => entry.Message == expectedLogMessage)
+                .ToList();
+
+            Assert.Equal(2, matchingEntries.Count);
+            Assert.All(matchingEntries, entry => Assert.Equal(LogLevel.Information, entry.Level));
+            Assert.Single(matchingEntries.Where(HasClientAccessScope));
+            Assert.Single(matchingEntries.Where(entry => !HasClientAccessScope(entry)));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     }
 
     // TC5 reference: docs/test_specifications_EN.md –

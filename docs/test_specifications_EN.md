@@ -179,14 +179,21 @@ Assert: Two informative log entries with identical messages exist—one emitted
 without a scope and another emitted within a scope containing `LogType ==
 "ClientAccess"`; ensure no additional entries with that message are produced.
 
+### TC13 Comma Amount Rejected
+
+Arrange: Use the shared harness defaults and let the test logger capture
+messages.
+
+Act: POST the TC1 payload but supply `amount: "1,25"` (comma decimal) after
+forcing `CultureInfo.InvariantCulture` for the controller invocation.
+
+Assert: HTTP 400 with `{ message: "Invalid amount format." }`; confirm neither
+`GetProductByOrderDetailIdAsync` nor `ApplyDeliveryAsync` run and that the
+client-access log records "Invalid amount format".
+
 ## Open Questions / Further considerations
 
-- Should delivery amounts containing commas be accepted? Under default culture
-`double.TryParse` rejects them before the comma check, so clarify expected
-localisation rules. -> Rejecting them is correct, this should trigger the same
-error response as TC6 (Invalid amount format). Since the comma vs dot is more
-ambiguous, adding a specific unit test to address this might be good.
-
-- Confirm whether client-facing logs need verification in unit tests or can be
-covered by integration/logging tests. -> Should be verified somehow that a log
-file is written, as the logging is part of the requirement definition.
+- Should delivery amounts containing commas ever be accepted? TC13 currently
+codifies rejection; revisit if localisation requirements change.
+- Confirm whether client-facing logs need verification in integration tests or
+if unit coverage (TC12/TC13) is sufficient to meet the logging requirement.

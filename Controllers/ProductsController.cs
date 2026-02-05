@@ -74,6 +74,13 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = "Invalid Product ID format." });
         }
 
+        // Reject comma-separated decimals up front to avoid localisation surprises
+        if (deliveryRecord.amount.Contains(','))
+        {
+            LogClientAccess(logStringBase + "Invalid amount format");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
         // Early return if amount is formatted incorrectly (needs to represent a double)
         if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
         {
