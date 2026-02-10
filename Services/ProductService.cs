@@ -2,6 +2,7 @@ using System.Data;
 using HandyBackend.Data;
 using HandyBackend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace HandyBackend.Services;
 
@@ -12,10 +13,12 @@ namespace HandyBackend.Services;
 public class ProductService : IProductService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<ProductService> _logger;
 
-    public ProductService(ApplicationDbContext context)
+    public ProductService(ApplicationDbContext context, ILogger<ProductService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync()
@@ -83,7 +86,10 @@ public class ProductService : IProductService
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
-        var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+        // Note: In case this await fails, for example due to a lock on the table, it should
+        // throw an exception that then bubbles up because it's not handled here.
+        var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync(
+            $@"
             UPDATE orderdetails
             SET SalesQuantity = SalesQuantity + {amountDelta},
                 LabelCollectCount = LabelCollectCount + 1,
@@ -92,16 +98,24 @@ public class ProductService : IProductService
                 UpdateTime = CURRENT_TIME()
             WHERE OrderDetailID = {productId}
               AND LabelCollectCount < LabelIssueCount;
-        ");
+        "
+        );
 
         if (rowsAffected == 0)
         {
-            // Determine whether the row is missing or the label limit was reached.
-            var current = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId);
             await transaction.RollbackAsync();
+
+            // Determine whether the row is missing or the label limit was reached.
+            var current = await _context
+                .Products.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId);
 
             if (current == null)
             {
+                _logger.LogWarning(
+                    "Delivery update lost target row for product {ProductId}. No rows affected.",
+                    productId
+                );
                 return null;
             }
 
@@ -110,7 +124,15 @@ public class ProductService : IProductService
                 throw new InvalidOperationException("Label scan limit reached.");
             }
 
-            throw new InvalidOperationException("Delivery update failed unexpectedly.");
+            _logger.LogError(
+                "Delivery update failed unexpectedly for product {ProductId}. Collect {CollectCount} / Issue {IssueCount}, delta {AmountDelta}, identification {IdentificationNumber}.",
+                productId,
+                current.LabelCollectCount,
+                current.LabelIssueCount,
+                amountDelta,
+                identificationNumber
+            );
+            throw new DataException("Delivery update failed unexpectedly.");
         }
 
         await transaction.CommitAsync();
