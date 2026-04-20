@@ -1,6 +1,8 @@
+using System.Data;
 using HandyBackend.Data;
 using HandyBackend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace HandyBackend.Services;
 
@@ -11,10 +13,12 @@ namespace HandyBackend.Services;
 public class ProductService : IProductService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<ProductService> _logger;
 
-    public ProductService(ApplicationDbContext context)
+    public ProductService(ApplicationDbContext context, ILogger<ProductService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<Product>> GetAllProductsAsync()
@@ -48,6 +52,7 @@ public class ProductService : IProductService
         existingProduct.OrderDetailId = product.OrderDetailId;
         // existingProduct.Price = product.Price;
         existingProduct.Amount = product.Amount;
+        existingProduct.IdentificationNumber = product.IdentificationNumber;
         existingProduct.UpdateDate = DateTime.UtcNow.Date;
         existingProduct.UpdateTime = DateTime.UtcNow.TimeOfDay;
 
@@ -64,5 +69,75 @@ public class ProductService : IProductService
         _context.Products.Remove(product);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Applies the delivery delta to the specified product inside a transaction to prevent races.
+    /// </summary>
+    /// <param name="productId">Primary key of the product to update.</param>
+    /// <param name="amountDelta">Delta (positive or negative) to add to the product amount.</param>
+    /// <param name="identificationNumber">Optional individual identifier captured from the delivery record.</param>
+    /// <returns>The updated product, or null if it no longer exists.</returns>
+    public async Task<Product?> ApplyDeliveryAsync(
+        int productId,
+        double amountDelta,
+        long? identificationNumber
+    )
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        // Note: In case this await fails, for example due to a lock on the table, it should
+        // throw an exception that then bubbles up because it's not handled here.
+        var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync(
+            $@"
+            UPDATE orderdetails
+            SET SalesQuantity = SalesQuantity + {amountDelta},
+                LabelCollectCount = LabelCollectCount + 1,
+                IdentificationNumber = COALESCE({identificationNumber}, IdentificationNumber),
+                UpdateDate = CURRENT_DATE(),
+                UpdateTime = CURRENT_TIME()
+            WHERE OrderDetailID = {productId}
+              AND LabelCollectCount < LabelIssueCount;
+        "
+        );
+
+        if (rowsAffected == 0)
+        {
+            await transaction.RollbackAsync();
+
+            // Determine whether the row is missing or the label limit was reached.
+            var current = await _context
+                .Products.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (current == null)
+            {
+                _logger.LogWarning(
+                    "Delivery update lost target row for product {ProductId}. No rows affected.",
+                    productId
+                );
+                return null;
+            }
+
+            if (current.LabelCollectCount >= current.LabelIssueCount)
+            {
+                throw new InvalidOperationException("Label scan limit reached.");
+            }
+
+            _logger.LogError(
+                "Delivery update failed unexpectedly for product {ProductId}. Collect {CollectCount} / Issue {IssueCount}, delta {AmountDelta}, identification {IdentificationNumber}.",
+                productId,
+                current.LabelCollectCount,
+                current.LabelIssueCount,
+                amountDelta,
+                identificationNumber
+            );
+            throw new DataException("Delivery update failed unexpectedly.");
+        }
+
+        await transaction.CommitAsync();
+
+        var updatedProduct = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
+        return updatedProduct;
     }
 }

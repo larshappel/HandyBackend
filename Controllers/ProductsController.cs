@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using HandyBackend.DTOs;
 using HandyBackend.Models;
 using HandyBackend.Models.DTOs;
@@ -21,10 +22,12 @@ namespace HandyBackend.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly IProductService _productService;
+    private readonly ILogger<ProductsController> _logger;
 
-    public ProductsController(IProductService productService)
+    public ProductsController(IProductService productService, ILogger<ProductsController> logger)
     {
         _productService = productService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -33,6 +36,155 @@ public class ProductsController : ControllerBase
         var products = await _productService.GetAllProductsAsync();
         var responseDtos = products.Select(MapToResponseDto);
         return Ok(responseDtos);
+    }
+
+    // This one is the main endpoint we're using to transfer the data.
+    // The method first validates the delivery record before updating
+    // the database.
+    [HttpPost("delivery")]
+    public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
+    {
+        // Log string will be prefixed by a timestamp, suffixed by a status msg -> CSV format
+        string logStringBase =
+            $",{deliveryRecord.product_id}, {deliveryRecord.amount}, {deliveryRecord.individual_id}, {deliveryRecord.device_id}, ";
+
+        // _logger.LogInformation(
+        //     "Delivery received - Product ID: {ProductId}, Amount: {Amount}, Individual ID: {IndividualId}, Device ID: {DeviceID}",
+        //     deliveryRecord.product_id,
+        //     deliveryRecord.amount,
+        //     deliveryRecord.individual_id,
+        //     deliveryRecord.device_id
+        // );
+
+
+        // Check if the product_id is actually long enough...
+        if (!(deliveryRecord.product_id.Length > 4))
+        {
+            LogClientAccess(logStringBase + "Invalid product ID");
+            return BadRequest(new { message = "Invalid Product ID format." });
+        }
+
+        // Cut the leading '9' (present in product id barcodes to distinguish from others)
+        deliveryRecord.product_id = deliveryRecord.product_id.Substring(4);
+
+        // Early return if the product ID format is wrong (i.e. not an integer).
+        if (!int.TryParse(deliveryRecord.product_id, out int productId))
+        {
+            LogClientAccess(logStringBase + "Invalid product ID");
+            return BadRequest(new { message = "Invalid Product ID format." });
+        }
+
+        // Reject comma-separated decimals up front to avoid localisation surprises
+        // also reject negative signs to prevent negative deliveries
+        if (deliveryRecord.amount.Contains(',') || deliveryRecord.amount.Contains('-'))
+        {
+            LogClientAccess(logStringBase + "Invalid amount format");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
+        // Early return if amount is formatted incorrectly (needs to represent a double)
+        if (!double.TryParse(deliveryRecord.amount, out double amountDouble))
+        {
+            LogClientAccess(logStringBase + "Invalid amount format");
+            return BadRequest(new { message = "Invalid amount format." });
+        }
+
+        // Early return if the product ID isn't in the DB.
+        var product = await _productService.GetProductByOrderDetailIdAsync(productId);
+        if (product == null)
+        {
+            LogClientAccess(logStringBase + "Non-existent product ID");
+            return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
+        }
+
+        // Early return if scan count limit reached. (LabelIssueCount vs LabelScanCount)
+        if (product.LabelCollectCount >= product.LabelIssueCount)
+        {
+            LogClientAccess(logStringBase + "Excess Label Scan");
+            return Ok(new { message = "It's already scanned!" });
+        }
+
+        // The prerequisites and early returns are finished.
+        // Next the data will be interpreted and written to the DB.
+
+        if (deliveryRecord.amount.Contains('.') || deliveryRecord.amount.Contains(','))
+        {
+            _logger.LogInformation("Amount has dot. It was in kilo, use as is.");
+            // do nothing
+        }
+        else
+        {
+            _logger.LogInformation("Amount has no dot. It was in gram. Converting to kilo.");
+            amountDouble = amountDouble / 1000d;
+        }
+
+        amountDouble = TruncateToTwoDecimalPlaces(amountDouble);
+
+        long? individualId = null;
+        if (long.TryParse(deliveryRecord.individual_id, out long parsedIndividualId))
+        {
+            individualId = parsedIndividualId;
+        }
+        else
+        {
+            _logger.LogInformation(logStringBase + ", no valid individual ID");
+        }
+
+        Product? updatedProduct;
+        try
+        {
+            updatedProduct = await _productService.ApplyDeliveryAsync(
+                product.Id,
+                amountDouble,
+                individualId
+            );
+        }
+        catch (InvalidOperationException)
+        {
+            LogClientAccess(logStringBase + "Excess Label Scan");
+            return Ok(new { message = "It's already scanned!" });
+        }
+
+        if (updatedProduct == null)
+        {
+            return Ok(new { message = "The product no longer exists." });
+        }
+
+        var formattedAmount = updatedProduct?.Amount.ToString(
+            "0.00",
+            CultureInfo.InvariantCulture
+        );
+        LogClientAccess(logStringBase + "Amount updated: " + formattedAmount);
+
+        return Ok(
+            new
+            {
+                message = "Delivery processed successfully",
+                productOrderDetailId = product.OrderDetailId,
+                newAmount = updatedProduct.Amount,
+            }
+        );
+    }
+
+    /**
+     * Uses the logger to write to a client-accessible log location.
+     */
+    private void LogClientAccess(string msg)
+    {
+        // First log to standard output as well
+        _logger.LogInformation(msg);
+
+        // 'Using' keyword to dispose of the scope (ClientAccess logtype) automatically after the block,
+        // the log client logs.
+        using (_logger.BeginScope(new Dictionary<string, object> { ["LogType"] = "ClientAccess" }))
+        {
+            _logger.LogInformation(msg);
+        }
+    }
+
+    private static double TruncateToTwoDecimalPlaces(double value)
+    {
+        return (double)(Math.Truncate((decimal)value * 100m) / 100m);
     }
 
     [HttpGet("{id}")]
@@ -115,62 +267,6 @@ public class ProductsController : ControllerBase
             return NotFound();
 
         return NoContent();
-    }
-
-    [HttpPost("delivery")]
-    public async Task<IActionResult> ProcessDelivery(DeliveryRecordDto deliveryRecord)
-    {
-        Console.WriteLine(
-            $"Delivery received - Product ID: {deliveryRecord.product_id}, Amount: {deliveryRecord.amount}, Individual ID: {deliveryRecord.individual_id}"
-        );
-
-        if (!int.TryParse(deliveryRecord.product_id, out int productId))
-        {
-            return BadRequest(new { message = "Invalid Product ID format." });
-        }
-
-        if (!long.TryParse(deliveryRecord.individual_id, out long individualId))
-        {
-            // Handle cases where individual_id might be null, empty, or non-numeric
-            // For now, we'll treat it as optional and proceed without it.
-            // Depending on requirements, you might want to return BadRequest here.
-            Console.WriteLine($"Could not parse Individual ID: {deliveryRecord.individual_id}");
-        }
-
-        // Find the product by OrderDetailId (using productId as the OrderDetailId)
-        var product = await _productService.GetProductByOrderDetailIdAsync(
-            productId
-        );
-        if (product == null)
-        {
-            Console.WriteLine($"Product not found: {deliveryRecord.product_id}");
-            return NotFound(new { message = $"Product '{deliveryRecord.product_id}' not found" });
-        }
-
-        // Update the product's amount (set the amount of existing stock)
-        product.Amount = (int)deliveryRecord.amount;
-        if (long.TryParse(deliveryRecord.individual_id, out individualId))
-        {
-            product.IdentificationNumber = individualId;
-        }
-        product.UpdateDate = DateTime.UtcNow.Date;
-        product.UpdateTime = DateTime.UtcNow.TimeOfDay;
-
-        // Save the changes
-        var updatedProduct = await _productService.UpdateProductAsync(product.Id, product);
-
-        Console.WriteLine(
-            $"Product '{product.OrderDetailId}' stock updated. New amount: {updatedProduct.Amount}"
-        );
-
-        return Ok(
-            new
-            {
-                message = "Delivery processed successfully",
-                productOrderDetailId = product.OrderDetailId,
-                newAmount = updatedProduct.Amount,
-            }
-        );
     }
 
     // Helper method to map Product to ProductResponseDto
